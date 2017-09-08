@@ -447,7 +447,7 @@ class FrequencyOptimizer:
         if self.frac_bw == False:
             for ic,C in enumerate(self.Cs):
                 if self.verbose:
-                    print("Computing center freq %0.3f GHz (%i/%i)"%(C,ic,len(self.Cs))(
+                    print("Computing center freq %0.3f GHz (%i/%i)"%(C,ic,len(self.Cs)))
                 for ib,B in enumerate(self.Bs):
                     if B > 1.9*C:
                         self.sigmas[ic,ib] = np.nan
