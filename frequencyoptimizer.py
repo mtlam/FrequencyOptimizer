@@ -624,20 +624,4 @@ class FrequencyOptimizer:
 
 
 
-def run(psrnoise,numin=0.08,numax=10.0,nchan=60,log=True,nsteps=25,frac_bw=False,full_bandwidth=False,minimum=None,points=None,DIR="",arrowcalc=None,masks=None):
-    freqopt = FrequencyOptimizer(psrnoise,numin=numin,numax=numax,nchan=nchan,log=log,nsteps=nsteps,frac_bw=frac_bw,full_bandwidth=full_bandwidth,masks=masks)
-    freqopt.calc()
-    if len(DIR) > 0 and DIR[-1] != "/":
-        DIR += "/"
-    if arrowcalc is not None:
-        colorbararrow = freqopt.calc_single(arrowcalc)
-    else:
-        colorbararrow = None
-    freqopt.plot("%s%s.png"%(DIR,psrnoise.name),doshow=False,minimum=minimum,points=points,colorbararrow=colorbararrow)
-    freqopt.plot("%s%s.pdf"%(DIR,psrnoise.name),doshow=False,minimum=minimum,points=points,colorbararrow=colorbararrow)
-    freqopt.save("%s%s.npz"%(DIR,psrnoise.name))
-    inds = np.where(np.logical_not(np.isnan(freqopt.sigmas.flatten())))[0]
-    #print np.min(freqopt.sigmas.flatten()[inds])
-    return freqopt
-
 
