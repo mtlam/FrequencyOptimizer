@@ -4,7 +4,7 @@ FrequencyOptimizer
 A python package for the optimal frequencies analysis (M. T. Lam et al in prep.) of pulsars
 
 Requires:
-python 2.7 or 3.X
+python 2.7
 numpy
 scipy
 matplotlib
