@@ -147,17 +147,26 @@ def evalDMnuError(dnuiss,nu1,nu2,g=0.46,q=1.15,screen=False,fresnel=False):
 
 
 class PulsarNoise:
-    def __init__(self,name,alpha=1.7,beta=2.75,dtd=None,dnud=None,taud=None,C1=1.16,A_e=27600.0,I_0=18.0,DM=0.0,D=1.0,T_e=100,tauvar=None,Weffs=None,W50s=None,sigma_Js=None,fillingfactor=0.2):
+    def __init__(self,name,alpha=1.7,beta=2.75,dtd=None,dnud=None,taud=None,C1=1.16,A_e=27600.0,I_0=18.0,DM=0.0,D=1.0,T_e=100,tauvar=None,Weffs=None,W50s=None,sigma_Js=None,fillingfactor=0.2,P=None):
         self.name = name
 
         self.dtd = dtd
 
-        if taud is not None:
+        if taud is None:
+            self.dnud = dnud
+            self.taud = 1e-3 * C1/(2*np.pi*dnud) #taud0 in ns -> us
+        elif dnud is None:
             self.taud = taud
-            self.dnud = C1 / (2*np.pi*taud)
+            self.dnud = 1e-3 * C1/(2*np.pi*taud) #taud0 given in us, dnud0 in GHz
+
+        '''
+        if taud is not None:
+            self.taud = taud #taud now in us
+            self.dnud = C1 / (2*np.pi*taud) #if dnud in GHz, taud in ns
         elif dnud is not None:
             self.dnud = dnud
             self.taud = C1 / (2*np.pi*dnud)
+        '''
 
         self.C1 = C1
         self.A_e = A_e
@@ -177,6 +186,8 @@ class PulsarNoise:
         self.Weffs = Weffs
         self.W50s = W50s
         self.sigma_Js = sigma_Js
+
+        self.P = P * 1000 # now in microseconds
 
 
 class TelescopeNoise:
@@ -341,24 +352,54 @@ class FrequencyOptimizer:
         retval[inds] = 10**self.scattering_mod_f(np.log10(dataratios[inds]))
         return retval
         
+
+    def get_channels(self,nus,nuref=1.0,C1=1.16,T=1800.0,etat=0.2,etanu=0.2):
+
+        #Bs = np.logspace(MIN,2*MAX,(2*MAX-MIN)*nsteps+1)
+
+        numin = self.Bs[0]
+        numax = self.Bs[-1]
+
+        nus = self.Bs
+
+        nsteps = 3
+        numin = 0.08
+        numax = 10.0
+        MIN = np.log10(numin)
+        MAX = np.log10(numax)
+        nus = np.logspace(MIN,2*MAX,(2*MAX-MIN)*nsteps+1)
+
+
+        B = self.get_bandwidths(nus)
+        dtd = DISS.scale_dt_d(self.psrnoise.dtd,nuref,nus)
+        dnud = DISS.scale_dnu_d(self.psrnoise.dnud,nuref,nus)
+        taud = DISS.scale_tau_d(self.psrnoise.taud,nuref,nus)
+
+        niss = (1 + etanu* B/dnud) * (1 + etat* T/dtd) 
+
+        for i,nu in enumerate(nus):
+            print nu,niss[i]
+
+
+        raise SystemExit
+        pass
         
-    def scintillation_noise(self,nus,dtd0,dnud0=None,taud0=None,nuref=1.0,C1=1.16,T=1800.0,etat=0.2,etanu=0.2):
+    def scintillation_noise(self,nus,nuref=1.0,C1=1.16,T=1800.0,etat=0.2,etanu=0.2):
         '''
         dtd0 in seconds
         dnud0 in GHz
         Uses an internal nsteps
         '''
-        if taud0 is None:
-            taud0 = 1e-3 * C1/(2*np.pi*dnud0) #taud0 in ns -> us
-        elif dnud0 is None:
-            dnud0 = 1e-3 * C1/(2*np.pi*taud0) #taud0 given in us, dnud0 in GHz
+
+        #self.get_channels(nus)
+
         numin = nus[0]
         numax = nus[-1]
 
         B = self.get_bandwidths(nus)
-        dtd = DISS.scale_dt_d(dtd0,nuref,nus)
-        dnud = DISS.scale_dnu_d(dnud0,nuref,nus)
-        taud = DISS.scale_tau_d(taud0,nuref,nus)
+        dtd = DISS.scale_dt_d(self.psrnoise.dtd,nuref,nus)
+        dnud = DISS.scale_dnu_d(self.psrnoise.dnud,nuref,nus)
+        taud = DISS.scale_tau_d(self.psrnoise.taud,nuref,nus)
 
         niss = (1 + etanu* B/dnud) * (1 + etat* T/dtd) 
 
@@ -431,13 +472,16 @@ class FrequencyOptimizer:
     def calc_single(self,nus):
         cov = self.build_template_fitting_cov_matrix(nus)#,Weffs=self.psrnoise.Weffs,alpha=self.psrnoise.alpha,beta=self.psrnoise.beta,A_e=self.psrnoise.A_e,I_0=self.psrnoise.I_0,taud=self.psrnoise.taud,EM=self.psrnoise.EM,T_e=self.psrnoise.T_e) 
         jittercov = self.build_jitter_cov_matrix()
-        disscov = self.scintillation_noise(nus,self.psrnoise.dtd,taud0=self.psrnoise.taud) 
+        disscov = self.scintillation_noise(nus) 
         cov = cov +jittercov + disscov
         sigma2 = epoch_averaged_error(cov,var=True)
 
         sigmatel2 = epoch_averaged_error(self.build_polarization_cov_matrix())
 
         sigma = np.sqrt(sigma2 + self.DM_misestimation(nus,cov,covmat=True)**2 + sigmatel2) #need to include PBF errors?
+
+        if self.psrnoise.P is not None and sigma>self.psrnoise.P:
+            return self.psrnoise.P
 
         return sigma
 
@@ -517,8 +561,8 @@ class FrequencyOptimizer:
 
                 ax.set_xlabel(r"$\mathrm{Center~Frequency~\nu_0~(GHz)}$")
                 ax.set_ylabel(r"$\mathrm{Bandwidth}~B~\mathrm{(GHz)}$")
-                ax.xaxis.set_major_formatter(noformatter)
-                ax.yaxis.set_major_formatter(noformatter)
+                ax.xaxis.set_major_formatter(noformatter2)
+                ax.yaxis.set_major_formatter(noformatter2)
 
                 ax.text(0.05,0.9,"PSR~%s"%self.psrnoise.name.replace("-","$-$"),fontsize=18,transform=ax.transAxes,bbox=dict(boxstyle="square",fc="white"))
 
@@ -585,7 +629,7 @@ class FrequencyOptimizer:
                 #ax.set_ylabel(r"$r~\mathrm{(\nu_{max}/\nu_{min})}$")
                 ax.set_ylabel(r"$\mathrm{Fractional~Bandwidth~(B/\nu_0)}$")
                 ax.yaxis.set_major_locator(FixedLocator(np.log10(np.arange(0.25,1.75,0.25))))
-                ax.xaxis.set_major_formatter(noformatter)
+                ax.xaxis.set_major_formatter(noformatter2)
                 ax.yaxis.set_major_formatter(noformatter2)
             
             
