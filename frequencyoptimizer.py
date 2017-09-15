@@ -190,18 +190,31 @@ class PulsarNoise:
         self.P = P * 1000 # now in microseconds
 
 
+class GalacticNoise:
+    def __init__(self,beta=2.75,T_e=100.0,eta_nelec=0.2):
+        self.beta = beta
+        self.T_e = T_e
+        self.eta_nelec = eta_nelec
+
 class TelescopeNoise:
-    def __init__(self,gain,epsilon=0.08,pi_V=0.1,eta=0.0,pi_L=0.0):
-        pass
+    def __init__(self,gain,T_const,epsilon=0.08,pi_V=0.1,eta=0.0,pi_L=0.0,T=1800.0):
+        self.gain = gain
+        self.T_const = Tconst
+        self.epsilon = epsilon
+        self.pi_V = pi_V
+        self.pi_L = pi_L
+        self.T = T
 
 
 
 
 
 class FrequencyOptimizer:
-    def __init__(self,psrnoise,numin=0.3,numax=10.0,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,full_bandwidth=False,masks=None):
+    def __init__(self,psrnoise,galnoise,telnoise,numin=0.3,numax=10.0,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,full_bandwidth=False,masks=None):
 
         self.psrnoise = psrnoise
+        self.galnoise = galnoise
+        self.telnoise = telnoise
         self.log = log
         self.frac_bw = frac_bw
         
