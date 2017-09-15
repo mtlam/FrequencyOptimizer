@@ -147,7 +147,7 @@ def evalDMnuError(dnuiss,nu1,nu2,g=0.46,q=1.15,screen=False,fresnel=False):
 
 
 class PulsarNoise:
-    def __init__(self,name,alpha=1.7,beta=2.75,dtd=None,dnud=None,taud=None,C1=1.16,A_e=27600.0,I_0=18.0,DM=0.0,D=1.0,T_e=100,tauvar=None,Weffs=None,W50s=None,sigma_Js=None,fillingfactor=0.2,P=None):
+    def __init__(self,name,alpha=1.7,dtd=None,dnud=None,taud=None,C1=1.16,I_0=18.0,DM=0.0,D=1.0,T_e=100,tauvar=None,Weffs=None,W50s=None,sigma_Js=None,fillingfactor=0.2,P=None):
         self.name = name
 
         self.dtd = dtd
@@ -169,7 +169,6 @@ class PulsarNoise:
         '''
 
         self.C1 = C1
-        self.A_e = A_e
         self.I_0 = I_0
         self.DM = DM
         self.D = D
@@ -177,7 +176,6 @@ class PulsarNoise:
         self.T_e = T_e
 
         self.alpha = alpha
-        self.beta = beta
 
         if tauvar is None:
             tauvar = self.taud / 2.0
@@ -199,7 +197,7 @@ class GalacticNoise:
 class TelescopeNoise:
     def __init__(self,gain,T_const,epsilon=0.08,pi_V=0.1,eta=0.0,pi_L=0.0,T=1800.0):
         self.gain = gain
-        self.T_const = Tconst
+        self.T_const = T_const
         self.epsilon = epsilon
         self.pi_V = pi_V
         self.pi_L = pi_L
@@ -291,7 +289,7 @@ class FrequencyOptimizer:
         B = self.get_bandwidths(nus)
        
 
-        Tsys = Tconst + 20 * np.power(nus/0.408,-1*self.psrnoise.beta)
+        Tsys = Tconst + 20 * np.power(nus/0.408,-1*self.galnoise.beta)
 
         tau = 0.0
         if self.psrnoise.DM != 0.0 and self.psrnoise.D != 0.0 and self.psrnoise.T_e != 0.0 and self.psrnoise.fillingfactor != 0:
@@ -299,7 +297,8 @@ class FrequencyOptimizer:
 
         numer =  (self.psrnoise.I_0 * 1e-3) * np.power(nus/nuref,-1*self.psrnoise.alpha)*np.sqrt(B*1e9*T) * np.exp(-1*tau*np.power(nus/nuref,-2.1)) 
 
-        denom = (2760.0 / self.psrnoise.A_e) * Tsys
+        #denom = (2760.0 / self.psrnoise.A_e) * Tsys        
+        denom = Tsys / self.telnoise.gain
         S = numer/denom
         sigmas = self.template_fitting_error(S,Weffs,1)
 
@@ -483,7 +482,8 @@ class FrequencyOptimizer:
 
 
     def calc_single(self,nus):
-        cov = self.build_template_fitting_cov_matrix(nus)#,Weffs=self.psrnoise.Weffs,alpha=self.psrnoise.alpha,beta=self.psrnoise.beta,A_e=self.psrnoise.A_e,I_0=self.psrnoise.I_0,taud=self.psrnoise.taud,EM=self.psrnoise.EM,T_e=self.psrnoise.T_e) 
+        cov = self.build_template_fitting_cov_matrix(nus)
+
         jittercov = self.build_jitter_cov_matrix()
         disscov = self.scintillation_noise(nus) 
         cov = cov +jittercov + disscov
