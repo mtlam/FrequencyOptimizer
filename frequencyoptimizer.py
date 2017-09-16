@@ -234,7 +234,8 @@ class FrequencyOptimizer:
                 MAX = np.log10(numax)
                 self.Cs = np.logspace(MIN,MAX,(MAX-MIN)*nsteps+1)
                 if full_bandwidth:
-                    self.Bs = np.logspace(MIN,2*MAX,(2*MAX-MIN)*nsteps+1)
+                    MAX = np.log10(2*numax)
+                    self.Bs = np.logspace(MIN,MAX,(MAX-MIN)*nsteps+1) 
                 else:
                     self.Bs = np.logspace(MIN,MAX,(MAX-MIN)*nsteps+1)
         else:
@@ -374,12 +375,13 @@ class FrequencyOptimizer:
 
         nus = self.Bs
 
-        nsteps = 3
-        numin = 0.08
+        nsteps = 50
+        numin = 0.01
         numax = 10.0
         MIN = np.log10(numin)
-        MAX = np.log10(numax)
-        nus = np.logspace(MIN,2*MAX,(2*MAX-MIN)*nsteps+1)
+        MAX = np.log10(2*numax)
+        #nus = np.logspace(MIN,2*MAX,(2*MAX-MIN)*nsteps+1) #2*MAX or np.log10(2*numax)?
+        nus = np.logspace(MIN,MAX,(MAX-MIN)*nsteps+1) #2*MAX or np.log10(2*numax)?
 
 
         B = self.get_bandwidths(nus)
@@ -403,7 +405,7 @@ class FrequencyOptimizer:
         Uses an internal nsteps
         '''
 
-        #self.get_channels(nus)
+        self.get_channels(nus)
 
         numin = nus[0]
         numax = nus[-1]
@@ -418,7 +420,14 @@ class FrequencyOptimizer:
         # check if niss >> 1?
         sigmas = taud/np.sqrt(niss)
 
-        return np.matrix(np.diag(sigmas**2)) #these will be independent IF niss is large
+        retval = np.matrix(np.diag(sigmas**2))
+        inds = np.where(niss < 2)[0]
+        for i in inds:
+            for j in inds:
+                retval[i,j] = sigmas[i] * sigmas[j] #?
+        return retval
+
+        #return np.matrix(np.diag(sigmas**2)) #these will be independent IF niss is large
         
         
 
