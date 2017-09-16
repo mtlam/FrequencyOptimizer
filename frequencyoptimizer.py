@@ -208,7 +208,7 @@ class TelescopeNoise:
 
 
 class FrequencyOptimizer:
-    def __init__(self,psrnoise,galnoise,telnoise,numin=0.3,numax=10.0,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,full_bandwidth=False,masks=None):
+    def __init__(self,psrnoise,galnoise,telnoise,numin=0.01,numax=10.0,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,full_bandwidth=False,masks=None):
 
         self.psrnoise = psrnoise
         self.galnoise = galnoise
