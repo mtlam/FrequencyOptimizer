@@ -200,6 +200,7 @@ class TelescopeNoise:
         self.T_const = T_const
         self.epsilon = epsilon
         self.pi_V = pi_V
+        self.eta = eta
         self.pi_L = pi_L
         self.T = T
 
@@ -466,17 +467,25 @@ class FrequencyOptimizer:
 
 
 
+
         
-    def build_polarization_cov_matrix(self,epsilon=0.08,pi_V=0.1):
+    def build_polarization_cov_matrix(self):
         W50s = self.psrnoise.W50s
         if type(W50s) != np.ndarray:
             W50s = np.zeros(self.nchan)+W50s
-        if type(epsilon) != np.ndarray:
-            epsilon = np.zeros(self.nchan)+epsilon
-        if type(pi_V) != np.ndarray:
-            pi_V = np.zeros(self.nchan)+pi_V
+        if type(self.telnoise.epsilon) != np.ndarray:
+            epsilon = np.zeros(self.nchan)+self.telnoise.epsilon
+        if type(self.telnoise.pi_V) != np.ndarray:
+            pi_V = np.zeros(self.nchan)+self.telnoise.pi_V
+        if type(self.telnoise.eta) != np.ndarray:
+            eta = np.zeros(self.nchan)+self.telnoise.eta
+        if type(self.telnoise.pi_L) != np.ndarray:
+            pi_L = np.zeros(self.nchan)+self.telnoise.pi_L
+
+
 
         sigmas = epsilon*pi_V*(W50s/100.0) #W50s in microseconds #do more?
+        sigmasprime = 2 * np.sqrt(eta) * pi_L #Actually use this
         return np.matrix(np.diag(sigmas**2))
 
 
