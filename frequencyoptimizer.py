@@ -294,7 +294,7 @@ class FrequencyOptimizer:
 
         tau = 0.0
         if self.psrnoise.DM != 0.0 and self.psrnoise.D != 0.0 and self.galnoise.T_e != 0.0 and self.galnoise.fillingfactor != 0:
-            tau = 3.27e-8 * (self.galnoise.fillingfactor/0.2)**-1 * self.psrnoise.DM**2 * self.psrnoise.D**-1 * np.power(self.galnoise.T_e/100,-1.35)
+            tau = 1.417e-6 * (self.galnoise.fillingfactor/0.2)**-1 * self.psrnoise.DM**2 * self.psrnoise.D**-1 * np.power(self.galnoise.T_e/100,-1.35)
 
         numer =  (self.psrnoise.I_0 * 1e-3) * np.power(nus/nuref,-1*self.psrnoise.alpha)*np.sqrt(B*1e9*T) * np.exp(-1*tau*np.power(nus/nuref,-2.1)) 
 
@@ -405,7 +405,7 @@ class FrequencyOptimizer:
         Uses an internal nsteps
         '''
 
-        self.get_channels(nus)
+        #self.get_channels(nus)
 
         numin = nus[0]
         numax = nus[-1]
@@ -421,10 +421,12 @@ class FrequencyOptimizer:
         sigmas = taud/np.sqrt(niss)
 
         retval = np.matrix(np.diag(sigmas**2))
+        #print retval
+        #raise SystemExit
         inds = np.where(niss < 2)[0]
         for i in inds:
             for j in inds:
-                retval[i,j] = sigmas[i] * sigmas[j] #?
+                retval[i,j] = sigmas[i] * sigmas[j] #close enough?
         return retval
 
         #return np.matrix(np.diag(sigmas**2)) #these will be independent IF niss is large
@@ -585,7 +587,7 @@ class FrequencyOptimizer:
                 width = xmax - xmin
                 height = ymax - ymin
                 # create the patch and place it in the back of countourf (zorder!)
-                p = patches.Rectangle(xy, width, height, hatch='X', color='0.75', fill=None, zorder=-10)
+                p = patches.Rectangle(xy, width, height, hatch='X', color='0.5', fill=None, zorder=-10)
                 ax.add_patch(p)
 
 
@@ -606,6 +608,8 @@ class FrequencyOptimizer:
                 MINB = self.Bs[INDB]
                 MINC = self.Cs[INDC]
                 print("Minimum",MINC,MINB,MIN)
+                with open("minima.txt",'a') as FILE:
+                    FILE.write("%s minima %f %f %f\n"%(self.psrnoise.name,MINC,MINB,MIN))
                 if self.log:
                     ax.plot(np.log10(MINC),np.log10(MINB),minimum,zorder=50,ms=10)
                 else:
@@ -616,10 +620,22 @@ class FrequencyOptimizer:
                     points = [points]
                 for point in points:
                     x,y,fmt = point
+                    nulow = x - y/2.0
+                    nuhigh = x + y/2.0
+
                     if self.log:
                         ax.plot(np.log10(x),np.log10(y),fmt,zorder=50,ms=8)
+                        nus = np.logspace(np.log10(nulow),np.log10(nuhigh),self.nchan+1)[:-1] 
+                        sigma = np.log10(self.calc_single(nus))
                     else:
                         ax.plot(x,y,fmt,zorder=50,ms=8)
+                        nus = np.linspace(nulow,nuhigh,self.nchan+1)[:-1] #more uniform sampling?
+                        sigma = np.log10(self.calc_single(nus))
+                    with open("minima.txt",'a') as FILE:
+                        FILE.write("%s point %f %f %f\n"%(self.psrnoise.name,x,y,sigma))
+
+
+
 
             if colorbararrow is not None:
                 data = np.log10(self.sigmas)
