@@ -600,8 +600,8 @@ class FrequencyOptimizer:
 
                 ax.set_xlabel(r"$\mathrm{Center~Frequency~\nu_0~(GHz)}$")
                 ax.set_ylabel(r"$\mathrm{Bandwidth}~B~\mathrm{(GHz)}$")
-                ax.xaxis.set_major_formatter(noformatter2)
-                ax.yaxis.set_major_formatter(noformatter2)
+                ax.xaxis.set_major_formatter(noformatter)
+                ax.yaxis.set_major_formatter(noformatter)
 
                 ax.text(0.05,0.9,"PSR~%s"%self.psrnoise.name.replace("-","$-$"),fontsize=18,transform=ax.transAxes,bbox=dict(boxstyle="square",fc="white"))
 
@@ -682,8 +682,8 @@ class FrequencyOptimizer:
                 #ax.set_ylabel(r"$r~\mathrm{(\nu_{max}/\nu_{min})}$")
                 ax.set_ylabel(r"$\mathrm{Fractional~Bandwidth~(B/\nu_0)}$")
                 ax.yaxis.set_major_locator(FixedLocator(np.log10(np.arange(0.25,1.75,0.25))))
-                ax.xaxis.set_major_formatter(noformatter2)
-                ax.yaxis.set_major_formatter(noformatter2)
+                ax.xaxis.set_major_formatter(noformatter)
+                ax.yaxis.set_major_formatter(noformatter)
             
             
         cbar = fig.colorbar(im)#,format=formatter)
