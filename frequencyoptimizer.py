@@ -183,7 +183,10 @@ class PulsarNoise:
         self.W50s = W50s
         self.sigma_Js = sigma_Js
 
-        self.P = P * 1000 # now in microseconds
+        if P is not None:
+            self.P = P * 1000 # now in microseconds
+        else:
+            self.P = None
 
 
 class GalacticNoise:
@@ -208,7 +211,9 @@ class TelescopeNoise:
 
 
 class FrequencyOptimizer:
-    def __init__(self,psrnoise,galnoise,telnoise,numin=0.01,numax=10.0,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,full_bandwidth=False,masks=None):
+    def __init__(self,psrnoise,galnoise,telnoise,numin=0.01,numax=10.0,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,full_bandwidth=False,masks=None,levels=LEVELS,colors=COLORS,lws=LWS):
+
+
 
         self.psrnoise = psrnoise
         self.galnoise = galnoise
@@ -259,7 +264,9 @@ class FrequencyOptimizer:
 
         self.scattering_mod_f = None
         self.verbose = verbose
-
+        self.levels = levels
+        self.colors = colors
+        self.lws = lws
 
     def template_fitting_error(self,S,Weff=100.0,Nphi=2048): #Weff in microseconds
         Nphi = 1 #TEST; NOW PROBABLY A FIX
@@ -577,7 +584,7 @@ class FrequencyOptimizer:
             else:
 
                 im = uimshow(data,extent=np.log10(np.array([self.Cs[0],self.Cs[-1],self.Bs[0],self.Bs[-1]])),cmap=cm.inferno_r,ax=ax)
-                cax = ax.contour(data,extent=np.log10(np.array([self.Cs[0],self.Cs[-1],self.Bs[0],self.Bs[-1]])),colors=COLORS,levels=LEVELS,linewidths=LWS,origin='lower')
+                cax = ax.contour(data,extent=np.log10(np.array([self.Cs[0],self.Cs[-1],self.Bs[0],self.Bs[-1]])),colors=self.colors,levels=self.levels,linewidths=self.lws,origin='lower')
 
                 #https://stackoverflow.com/questions/18390068/hatch-a-nan-region-in-a-contourplot-in-matplotlib
                 # get data you will need to create a "background patch" to your plot
