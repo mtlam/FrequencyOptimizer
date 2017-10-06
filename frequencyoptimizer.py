@@ -26,7 +26,6 @@ noformatter2 = FuncFormatter(nolog2)
 
 def log(x,pos):
     y = x#np.log10(x)
-    #print x,10**x
     #if y == 2:
     #    return "$\hfill 100$" #added
     if y == 1:
@@ -45,7 +44,6 @@ formatter = FuncFormatter(log)
 
 def log100(x,pos):
     y = x#np.log10(x)
-    #print x,10**x
     if y == 2:
         return "$\hfill 100$" #added
     elif y == 1:
@@ -252,12 +250,9 @@ class FrequencyOptimizer:
                 MAX = np.log10(numax)
                 self.Cs = np.logspace(MIN,MAX,(MAX-MIN)*nsteps+1)
                 self.Bs = np.logspace(MIN,MAX,(MAX-MIN)*nsteps+1)
-                #self.Rs = np.logspace(np.log10(self.Bs[-1]/self.Cs[0]),np.log10(1.0),len(self.Cs))[::-1]
                 self.Fs = np.logspace(np.log10(self.Bs[-1]/self.Cs[0]),np.log10(1.0),len(self.Cs))[::-1]
-                #self.Fs = np.logspace(np.log10(self.Bs[0]/self.Cs[-1]),np.log10(2.0),len(self.Cs))
                 self.Fs = np.logspace(np.log10(self.Bs[0]/self.Cs[-1]),np.log10(2.0),len(self.Cs))
-                #print self.Fs
-                #raise SystemExit
+
 
 
 
@@ -270,7 +265,7 @@ class FrequencyOptimizer:
         self.lws = lws
 
     def template_fitting_error(self,S,Weff=100.0,Nphi=2048): #Weff in microseconds
-        Nphi = 1 #TEST; NOW PROBABLY A FIX
+        Nphi = 1 
         return Weff / (S * np.sqrt(Nphi))
 
 
@@ -367,7 +362,7 @@ class FrequencyOptimizer:
             self.scattering_mod_f = interpolate.interp1d(logratios,logerrratios)
 
         dataratios = np.array(tauds)/np.array(Weffs) #sigma_Ws?
-        #print dataratios
+
         retval = np.zeros_like(dataratios) + 1.0
         inds = np.where(dataratios > 0.01)[0] #must be greater than this value
         retval[inds] = 10**self.scattering_mod_f(np.log10(dataratios[inds]))
@@ -429,8 +424,7 @@ class FrequencyOptimizer:
         sigmas = taud/np.sqrt(niss)
 
         retval = np.matrix(np.diag(sigmas**2))
-        #print retval
-        #raise SystemExit
+
         inds = np.where(niss < 2)[0]
         for i in inds:
             for j in inds:
@@ -465,9 +459,7 @@ class FrequencyOptimizer:
 
 
         # for now, ignore covariances and simply return the t_inf error    
-        #print P
-
-        template_fitting_var = P[0,0] #DM units for P[1,1] are incorrect?
+        template_fitting_var = P[0,0] 
 
         # Frequency-Dependent DM
         DM_nu_var = evalDMnuError(self.psrnoise.dnud,np.max(nus),np.min(nus))**2 / 25.0
@@ -475,7 +467,6 @@ class FrequencyOptimizer:
         # PBF errors (scattering), included already in cov matrix?
         # Scattering error, assume this is proportional to nu^-4.4? or 4?
         chromatic_components = self.psrnoise.tauvar * np.power(nus,-4.4)
-        #print chromatic_components
         scattering_var = np.dot(np.dot(np.dot(P,XT),VI),chromatic_components)[0,0]**2
 
         retval = np.sqrt(template_fitting_var + DM_nu_var + scattering_var)
@@ -536,11 +527,8 @@ class FrequencyOptimizer:
                     if B > 1.9*C:
                         self.sigmas[ic,ib] = np.nan
                     else:
-                        #C = 1.2
-                        #B = 1.0
                         nulow = C - B/2.0
                         nuhigh = C + B/2.0
-                        #print ic,len(self.Cs),C,B,nulow,nuhigh
 
                         if self.log == False:
                             nus = np.linspace(nulow,nuhigh,self.nchan+1)[:-1] #more uniform sampling?
@@ -552,16 +540,13 @@ class FrequencyOptimizer:
             for ic,C in enumerate(self.Cs):
                 print(ic,len(self.Cs),C)
                 for indf,F in enumerate(self.Fs):
-                    #B = (2*C) * (R-1)/(R+1)
                     B = C*F
-                    #print B
                     if B > 1.9*C or B <= 0:
                         self.sigmas[ic,indf] = np.nan
                     else:
                         nulow = C - B/2.0
                         nuhigh = C + B/2.0
-                        #print "here",B,nulow,nuhigh,C,F
-                        #print ic,len(self.Cs),C,B,nulow,nuhigh
+
 
                         if self.log == False:
                             nus = np.linspace(nulow,nuhigh,self.nchan+1)[:-1] #more uniform sampling?
@@ -656,8 +641,6 @@ class FrequencyOptimizer:
                     dx = np.log10(1.2)#np.log10(self.Cs[-1])#self.Bs[-1]*2)
                     frac = (np.log10(colorbararrow)-MIN)/(MAX-MIN)
                     y = frac*(np.log10(self.Bs[-1]) - np.log10(self.Bs[0])) + np.log10(self.Bs[0])
-                    #print MIN,MAX,colorbararrow
-                    #print np.log10(self.Bs[-1]),np.log10(self.Bs[0]),frac,y
                     arrow(x,y,dx,0.0,fc='k',ec='k',zorder=50,clip_on=False)
 
 
