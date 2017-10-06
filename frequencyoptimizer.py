@@ -84,14 +84,15 @@ LEVELS = np.array([np.log10(0.125),np.log10(0.25),np.log10(0.5),np.log10(1.0)])
 LEVELS = np.array([np.log10(0.25),np.log10(0.5),np.log10(1.0),np.log10(2.0),np.log10(5.0)])
 LEVELS = np.array([np.log10(0.25),np.log10(0.5),np.log10(1.0),np.log10(2.0),np.log10(5.0)])
 LEVELS = np.array([np.log10(0.5),np.log10(1.0),np.log10(2.0),np.log10(5.0),np.log10(10.0)])
-LEVELS = np.array([np.log10(0.5),np.log10(1.0),np.log10(2.0),np.log10(5.0),np.log10(10.0),np.log10(20.0)])
+#LEVELS = np.array([np.log10(0.5),np.log10(1.0),np.log10(2.0),np.log10(5.0),np.log10(10.0),np.log10(20.0)])
 
 COLORS = ['k','0.25','0.5','0.75']
 COLORS = ['k','0.25','0.5','0.75','1.0']
-COLORS = ['k','0.2','0.4','0.6','0.8','1.0']
+#COLORS = ['k','0.2','0.4','0.6','0.8','1.0']
 
 LWS = [2.5,2,1.5,1,0.5]
-LWS = [2.5,2.25,2.0,1.75,1.5,1.25]
+LWS = [2.5,2.25,2,1.75,1.5]
+#LWS = [2.5,2.25,2.0,1.75,1.5,1.25]
 
 def epoch_averaged_error(C,var=False):
     # Stripped down version from rednoisemodel.py from the excess noise project
