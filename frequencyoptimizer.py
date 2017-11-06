@@ -282,7 +282,7 @@ class FrequencyOptimizer:
         return B
 
 
-    def build_template_fitting_cov_matrix(self,nus,T=1800.0,nuref=1.0,Tconst=20.0):
+    def build_template_fitting_cov_matrix(self,nus,nuref=1.0,Tconst=20.0):
         '''
         
         '''
@@ -299,7 +299,7 @@ class FrequencyOptimizer:
         if self.psrnoise.DM != 0.0 and self.psrnoise.D != 0.0 and self.galnoise.T_e != 0.0 and self.galnoise.fillingfactor != 0:
             tau = 1.417e-6 * (self.galnoise.fillingfactor/0.2)**-1 * self.psrnoise.DM**2 * self.psrnoise.D**-1 * np.power(self.galnoise.T_e/100,-1.35)
 
-        numer =  (self.psrnoise.I_0 * 1e-3) * np.power(nus/nuref,-1*self.psrnoise.alpha)*np.sqrt(B*1e9*T) * np.exp(-1*tau*np.power(nus/nuref,-2.1)) 
+        numer =  (self.psrnoise.I_0 * 1e-3) * np.power(nus/nuref,-1*self.psrnoise.alpha)*np.sqrt(B*1e9*self.telnoise.T) * np.exp(-1*tau*np.power(nus/nuref,-2.1)) 
 
         #denom = (2760.0 / self.psrnoise.A_e) * Tsys        
         denom = Tsys / self.telnoise.gain
@@ -369,7 +369,7 @@ class FrequencyOptimizer:
         return retval
         
 
-    def get_channels(self,nus,nuref=1.0,C1=1.16,T=1800.0,etat=0.2,etanu=0.2):
+    def get_channels(self,nus,nuref=1.0,C1=1.16,etat=0.2,etanu=0.2):
 
         #Bs = np.logspace(MIN,2*MAX,(2*MAX-MIN)*nsteps+1)
 
@@ -392,7 +392,7 @@ class FrequencyOptimizer:
         dnud = DISS.scale_dnu_d(self.psrnoise.dnud,nuref,nus)
         taud = DISS.scale_tau_d(self.psrnoise.taud,nuref,nus)
 
-        niss = (1 + etanu* B/dnud) * (1 + etat* T/dtd) 
+        niss = (1 + etanu* B/dnud) * (1 + etat* self.telnoise.T/dtd) 
 
         for i,nu in enumerate(nus):
             print nu,niss[i]
@@ -401,7 +401,7 @@ class FrequencyOptimizer:
         raise SystemExit
         pass
         
-    def scintillation_noise(self,nus,nuref=1.0,C1=1.16,T=1800.0,etat=0.2,etanu=0.2):
+    def scintillation_noise(self,nus,nuref=1.0,C1=1.16,etat=0.2,etanu=0.2):
         '''
         dtd0 in seconds
         dnud0 in GHz
@@ -418,7 +418,7 @@ class FrequencyOptimizer:
         dnud = DISS.scale_dnu_d(self.psrnoise.dnud,nuref,nus)
         taud = DISS.scale_tau_d(self.psrnoise.taud,nuref,nus)
 
-        niss = (1 + etanu* B/dnud) * (1 + etat* T/dtd) 
+        niss = (1 + etanu* B/dnud) * (1 + etat* self.telnoise.T/dtd) 
 
         # check if niss >> 1?
         sigmas = taud/np.sqrt(niss)
