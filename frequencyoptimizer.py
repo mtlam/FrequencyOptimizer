@@ -282,7 +282,7 @@ class FrequencyOptimizer:
         return B
 
 
-    def build_template_fitting_cov_matrix(self,nus,nuref=1.0,Tconst=20.0):
+    def build_template_fitting_cov_matrix(self,nus,nuref=1.0):
         '''
         
         '''
@@ -293,7 +293,7 @@ class FrequencyOptimizer:
         B = self.get_bandwidths(nus)
        
 
-        Tsys = Tconst + 20 * np.power(nus/0.408,-1*self.galnoise.beta)
+        Tsys = self.telnoise.T_const + 20 * np.power(nus/0.408,-1*self.galnoise.beta)
 
         tau = 0.0
         if self.psrnoise.DM != 0.0 and self.psrnoise.D != 0.0 and self.galnoise.T_e != 0.0 and self.galnoise.fillingfactor != 0:
