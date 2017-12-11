@@ -106,7 +106,7 @@ Sample Code
 -----------
 
     galnoise = GalacticNoise()
-    gbtnoise = TelescopeNoise(gain=2.0,T_const=30)
+    telnoise = TelescopeNoise(gain=2.0,T_const=30)
 
     NCHAN = 100
     psrnoise = PulsarNoise("J1744-1134",alpha=1.49,taud=26.1e-3,I_0=4.888,DM=3.14,D=0.41,tauvar=12.2e-3,dtd=1272.2,Weffs=np.zeros(NCHAN)+511.0,W50s=np.zeros(NCHAN)+136.8,sigma_Js=np.zeros(NCHAN)+0.066,P=4.074545941439190)  #jitter upper limit
