@@ -210,7 +210,7 @@ class TelescopeNoise:
 
 
 class FrequencyOptimizer:
-    def __init__(self,psrnoise,galnoise,telnoise,numin=0.01,numax=10.0,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,full_bandwidth=False,masks=None,levels=LEVELS,colors=COLORS,lws=LWS):
+    def __init__(self,psrnoise,galnoise,telnoise,numin=0.01,numax=10.0,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,vverbose=False,full_bandwidth=False,masks=None,levels=LEVELS,colors=COLORS,lws=LWS):
 
 
 
@@ -252,7 +252,8 @@ class FrequencyOptimizer:
                 self.Bs = np.logspace(MIN,MAX,(MAX-MIN)*nsteps+1)
                 self.Fs = np.logspace(np.log10(self.Bs[-1]/self.Cs[0]),np.log10(1.0),len(self.Cs))[::-1]
                 self.Fs = np.logspace(np.log10(self.Bs[0]/self.Cs[-1]),np.log10(2.0),len(self.Cs))
-
+                # do not log space?
+                self.Fs = np.linspace(self.Bs[0]/self.Cs[-1],2.0,len(self.Cs))
 
 
 
@@ -260,6 +261,9 @@ class FrequencyOptimizer:
 
         self.scattering_mod_f = None
         self.verbose = verbose
+        if vverbose:
+            self.verbose = True
+        self.vverbose = vverbose
         self.levels = levels
         self.colors = colors
         self.lws = lws
@@ -299,7 +303,7 @@ class FrequencyOptimizer:
         if self.psrnoise.DM != 0.0 and self.psrnoise.D != 0.0 and self.galnoise.T_e != 0.0 and self.galnoise.fillingfactor != 0:
             tau = 1.417e-6 * (self.galnoise.fillingfactor/0.2)**-1 * self.psrnoise.DM**2 * self.psrnoise.D**-1 * np.power(self.galnoise.T_e/100,-1.35)
 
-        numer =  (self.psrnoise.I_0 * 1e-3) * np.power(nus/nuref,-1*self.psrnoise.alpha)*np.sqrt(B*1e9*self.telnoise.T) * np.exp(-1*tau*np.power(nus/nuref,-2.1)) 
+        numer =  (self.psrnoise.I_0 * 1e-3) * np.power(nus/nuref,-1*self.psrnoise.alpha)*np.sqrt(B*1e9*self.telnoise.T) #* np.exp(-1*tau*np.power(nus/nuref,-2.1)) 
 
         #denom = (2760.0 / self.psrnoise.A_e) * Tsys        
         denom = Tsys / self.telnoise.gain
@@ -323,8 +327,7 @@ class FrequencyOptimizer:
                 maskmin,maskmax = mask
                 inds = np.where(np.logical_and(nus>=maskmin,nus<=maskmax))[0]
                 sigmas[inds] = 0.0 #???
-            
-
+        
         return np.matrix(np.diag(sigmas**2))
         
     def build_jitter_cov_matrix(self):
@@ -440,7 +443,7 @@ class FrequencyOptimizer:
 
 
     # Using notation from signal processing notes, lecture 17
-    def DM_misestimation(self,nus,errs,covmat=False):
+    def DM_misestimation(self,nus,errs,covmat=False,fullDMnu=True):
         N = len(nus)
         X = np.matrix(np.ones((N,2))) #design matrix
         for i,nu in enumerate(nus):
@@ -462,13 +465,21 @@ class FrequencyOptimizer:
         template_fitting_var = P[0,0] 
 
         # Frequency-Dependent DM
-        DM_nu_var = evalDMnuError(self.psrnoise.dnud,np.max(nus),np.min(nus))**2 / 25.0
+        if fullDMnu:
+            DM_nu_var = evalDMnuError(self.psrnoise.dnud,np.max(nus),np.min(nus))**2 / 25.0
+        else:
+            DM_nu_var = evalDMnuError(self.psrnoise.dnud,np.max(nus),np.min(nus))**2 / 25.0
+
 
         # PBF errors (scattering), included already in cov matrix?
         # Scattering error, assume this is proportional to nu^-4.4? or 4?
         chromatic_components = self.psrnoise.tauvar * np.power(nus,-4.4)
         scattering_var = np.dot(np.dot(np.dot(P,XT),VI),chromatic_components)[0,0]**2
 
+        # test
+        #DM_nu_var = 0.0
+        #scattering_var = 0
+        
         retval = np.sqrt(template_fitting_var + DM_nu_var + scattering_var)
 
         return retval
@@ -501,16 +512,25 @@ class FrequencyOptimizer:
 
     def calc_single(self,nus):
         cov = self.build_template_fitting_cov_matrix(nus)
-
-        jittercov = self.build_jitter_cov_matrix()
+        jittercov = self.build_jitter_cov_matrix() #needs to have same length as nus!
         disscov = self.scintillation_noise(nus) 
-        cov = cov +jittercov + disscov
+        cov = cov + jittercov + disscov
         sigma2 = epoch_averaged_error(cov,var=True)
 
+        
         sigmatel2 = epoch_averaged_error(self.build_polarization_cov_matrix())
+
 
         sigma = np.sqrt(sigma2 + self.DM_misestimation(nus,cov,covmat=True)**2 + sigmatel2) #need to include PBF errors?
 
+        # Test
+        #sigma = np.sqrt(sigma2)
+
+        if self.vverbose:
+            print("White noise: %0.3f us"%np.sqrt(sigma2))
+            print("Telescope noise: %0.3f us"%np.sqrt(sigmatel2))
+
+        
         if self.psrnoise.P is not None and sigma>self.psrnoise.P:
             return self.psrnoise.P
 
@@ -586,6 +606,8 @@ class FrequencyOptimizer:
 
                 ax.set_xlabel(r"$\mathrm{Center~Frequency~\nu_0~(GHz)}$")
                 ax.set_ylabel(r"$\mathrm{Bandwidth}~B~\mathrm{(GHz)}$")
+                ax.xaxis.set_major_locator(MultipleLocator(0.5))
+                ax.yaxis.set_major_locator(MultipleLocator(0.5))
                 ax.xaxis.set_major_formatter(noformatter)
                 ax.yaxis.set_major_formatter(noformatter)
 
@@ -660,14 +682,21 @@ class FrequencyOptimizer:
 
                 im = uimshow(data,extent=np.log10(np.array([self.Cs[0],self.Cs[-1],self.Fs[goodinds][0],self.Fs[goodinds][-1]])),cmap=cm.inferno_r,ax=ax)
                 cax = ax.contour(data,extent=np.log10(np.array([self.Cs[0],self.Cs[-1],self.Fs[goodinds][0],self.Fs[goodinds][-1]])),colors=COLORS,levels=LEVELS,linewidths=LWS,origin='lower')
-                
 
+                #im = uimshow(data,extent=np.array([np.log10(self.Cs[0]),np.log10(self.Cs[-1]),self.Fs[goodinds][0],self.Fs[goodinds][-1]]),cmap=cm.inferno_r,ax=ax)
+                #cax = ax.contour(data,extent=np.array([np.log10(self.Cs[0]),np.log10(self.Cs[-1]),self.Fs[goodinds][0],self.Fs[goodinds][-1]]),colors=COLORS,levels=LEVELS,linewidths=LWS,origin='lower')
+
+
+                
+                print self.Fs
                 ax.set_xlabel(r"$\mathrm{Center~Frequency~\nu_0~(GHz)}$")
                 #ax.set_ylabel(r"$r~\mathrm{(\nu_{max}/\nu_{min})}$")
                 ax.set_ylabel(r"$\mathrm{Fractional~Bandwidth~(B/\nu_0)}$")
-                ax.yaxis.set_major_locator(FixedLocator(np.log10(np.arange(0.25,1.75,0.25))))
+                # no log
+                #ax.yaxis.set_major_locator(FixedLocator(np.log10(np.arange(0.25,1.75,0.25))))
+                
                 ax.xaxis.set_major_formatter(noformatter)
-                ax.yaxis.set_major_formatter(noformatter)
+                #ax.yaxis.set_major_formatter(noformatter)
             
             
         cbar = fig.colorbar(im)#,format=formatter)
