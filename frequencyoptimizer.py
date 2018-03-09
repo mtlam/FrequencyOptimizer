@@ -233,7 +233,7 @@ class FrequencyOptimizer:
     Primary class for frequency optimization
     '''
     
-    def __init__(self,psrnoise,galnoise,telnoise,numin=0.01,numax=10.0,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,vverbose=False,full_bandwidth=False,masks=None,levels=LEVELS,colors=COLORS,lws=LWS):
+    def __init__(self,psrnoise,galnoise,telnoise,numin=0.01,numax=10.0,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,vverbose=False,full_bandwidth=False,masks=None,levels=LEVELS,colors=COLORS,lws=LWS,full=True):
 
 
 
@@ -290,6 +290,7 @@ class FrequencyOptimizer:
         self.levels = levels
         self.colors = colors
         self.lws = lws
+        self.full = full
 
     def template_fitting_error(self,S,Weff=100.0,Nphi=2048): #Weff in microseconds
         return Weff / (S * np.sqrt(Nphi))
@@ -467,10 +468,12 @@ class FrequencyOptimizer:
 
         ## Frequency-Dependent DM
         #DM_nu_var = evalDMnuError(self.psrnoise.dnud,np.max(nus),np.min(nus))**2 / 25.0
-        DM_nu_var = evalDMnuError(self.psrnoise.dnud,np.max(nus),np.min(nus))**2 / 25.0
+        if self.full:
+            DM_nu_cov = self.build_DMnu_cov_matrix(nus)
+            DM_nu_var = epoch_averaged_error(DM_nu_cov,var=True)
+        else: # [deprecated], please be aware!
+            DM_nu_var = evalDMnuError(self.psrnoise.dnud,np.max(nus),np.min(nus))**2 / 25.0
         
-        DM_nu_cov = self.build_DMnu_cov_matrix(nus)
-        DM_nu_var = epoch_averaged_error(DM_nu_cov,var=True)
 
 
         # PBF errors (scattering), included already in cov matrix?
