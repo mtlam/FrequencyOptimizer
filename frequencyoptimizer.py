@@ -8,7 +8,7 @@ from matplotlib.ticker import FuncFormatter, MultipleLocator
 import matplotlib.patches as patches
 import DISS
 import glob
-
+import warnings
 
 rc('text',usetex=True)
 rc('font',**{'family':'serif','serif':['Times New Roman'],'size':14})#,'weight':'bold'})
@@ -146,7 +146,7 @@ def evalDMnuError(dnuiss,nu1,nu2,g=0.46,q=1.15,screen=False,fresnel=False):
 
 
 class PulsarNoise:
-    def __init__(self,name,alpha=1.6,dtd=None,dnud=None,taud=None,C1=1.16,I_0=18.0,DM=0.0,D=1.0,tauvar=None,Weffs=None,W50s=None,sigma_Js=None,P=None):
+    def __init__(self,name,alpha=1.6,dtd=None,dnud=None,taud=None,C1=1.16,I_0=18.0,DM=0.0,D=1.0,Uscale=1.0,tauvar=None,Weffs=None,W50s=None,sigma_Js=None,P=None):
         self.name = name
 
         self.dtd = dtd
@@ -181,6 +181,7 @@ class PulsarNoise:
         self.Weffs = Weffs
         self.W50s = W50s
         self.sigma_Js = sigma_Js
+        self.Uscale = Uscale
 
         if P is not None:
             self.P = P * 1000 # now in microseconds
@@ -269,7 +270,6 @@ class FrequencyOptimizer:
         self.lws = lws
 
     def template_fitting_error(self,S,Weff=100.0,Nphi=2048): #Weff in microseconds
-        Nphi = 1 
         return Weff / (S * np.sqrt(Nphi))
 
 
@@ -299,15 +299,25 @@ class FrequencyOptimizer:
 
         Tsys = self.telnoise.T_const + 20 * np.power(nus/0.408,-1*self.galnoise.beta)
 
+        
         tau = 0.0
         if self.psrnoise.DM != 0.0 and self.psrnoise.D != 0.0 and self.galnoise.T_e != 0.0 and self.galnoise.fillingfactor != 0:
             tau = 1.417e-6 * (self.galnoise.fillingfactor/0.2)**-1 * self.psrnoise.DM**2 * self.psrnoise.D**-1 * np.power(self.galnoise.T_e/100,-1.35)
 
-        numer =  (self.psrnoise.I_0 * 1e-3) * np.power(nus/nuref,-1*self.psrnoise.alpha)*np.sqrt(B*1e9*self.telnoise.T) #* np.exp(-1*tau*np.power(nus/nuref,-2.1)) 
+        numer =  (self.psrnoise.I_0 * 1e-3) * np.power(nus/nuref,-1*self.psrnoise.alpha)*np.sqrt(2*B*1e9*self.telnoise.T) # Factor of 2 comes from number of polarizations.
+        #* np.exp(-1*tau*np.power(nus/nuref,-2.1)) #
 
         #denom = (2760.0 / self.psrnoise.A_e) * Tsys        
         denom = Tsys / self.telnoise.gain
-        S = numer/denom
+        S = self.psrnoise.Uscale*numer/denom 
+        # S is the mean S/N over all phase. Need to adjust by the factor Ks.
+
+        
+        #print numer,denom
+
+        #print nus,B
+        #print self.psrnoise.I_0,self.telnoise.gain,B,self.telnoise.T#np.power(nus/nuref,-1*self.psrnoise.alpha)
+        
         sigmas = self.template_fitting_error(S,Weffs,1)
 
         if self.psrnoise.taud > 0.0:
@@ -478,9 +488,18 @@ class FrequencyOptimizer:
 
         # test
         #DM_nu_var = 0.0
-        #scattering_var = 0
-        
+        #scattering_var = 0.0
+
+
         retval = np.sqrt(template_fitting_var + DM_nu_var + scattering_var)
+        
+        if self.vverbose:
+            print("DM misestimation noise: %0.3f us"%retval)
+            
+            print("   DM estimation error: %0.3f us"%np.sqrt(template_fitting_var))
+            print("   DM(nu) error: %0.3f us"%np.sqrt(DM_nu_var))
+            print("   Chromatic term error: %0.3f us"%np.sqrt(scattering_var))
+
 
         return retval
 
@@ -511,27 +530,52 @@ class FrequencyOptimizer:
 
 
     def calc_single(self,nus):
-        cov = self.build_template_fitting_cov_matrix(nus)
+        sncov = self.build_template_fitting_cov_matrix(nus)
         jittercov = self.build_jitter_cov_matrix() #needs to have same length as nus!
         disscov = self.scintillation_noise(nus) 
-        cov = cov + jittercov + disscov
+        cov = sncov + jittercov + disscov
+
         sigma2 = epoch_averaged_error(cov,var=True)
 
+        if self.vverbose:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                print("White noise: %0.3f us"%np.sqrt(sigma2))
+                print("   Template-fitting error: %0.3f us"%np.sqrt(epoch_averaged_error(sncov,var=True)))
+                if np.all(jittercov == jittercov[0,0]):
+                    print("   Jitter error: %0.3f us"%np.sqrt(jittercov[0,0]))
+                else:
+                    print("   Jitter error: %0.3f us"%np.sqrt(epoch_averaged_error(jittercov,var=True)))
+                if np.all(disscov == disscov[0,0]):
+                    print("   Scintillation error: %0.3f us"%np.sqrt(disscov[0,0]))
+                else:
+                    print("   Scintillation error: %0.3f us"%np.sqrt(round(epoch_averaged_error(disscov,var=True),6)))
+
+
+        
         
         sigmatel2 = epoch_averaged_error(self.build_polarization_cov_matrix())
 
 
-        sigma = np.sqrt(sigma2 + self.DM_misestimation(nus,cov,covmat=True)**2 + sigmatel2) #need to include PBF errors?
+        
+        sigmadm2 = self.DM_misestimation(nus,cov,covmat=True)**2
 
+
+        sigma = np.sqrt(sigma2 + sigmadm2 + sigmatel2) #need to include PBF errors?
+
+
+        if self.vverbose:
+            print("Telescope noise: %0.3f us"%np.sqrt(sigmatel2))
         # Test
         #sigma = np.sqrt(sigma2)
 
+
         if self.vverbose:
-            print("White noise: %0.3f us"%np.sqrt(sigma2))
-            print("Telescope noise: %0.3f us"%np.sqrt(sigmatel2))
+            print("Total noise: %0.3f us"%sigma)
+            print("")
 
         
-        if self.psrnoise.P is not None and sigma>self.psrnoise.P:
+        if self.psrnoise.P is not None and sigma > self.psrnoise.P:
             return self.psrnoise.P
 
         return sigma
