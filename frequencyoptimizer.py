@@ -103,11 +103,6 @@ def epoch_averaged_error(C,var=False):
         return C_E[0,0]
     return np.sqrt(C_E[0,0])
 
-def isMatrix(value):
-    if type(value) == np.matrixlib.defmatrix.matrix or type(value) == np.ndarray:
-        return True
-    return False
-
 
 
 
@@ -146,6 +141,9 @@ def evalDMnuError(dnuiss,nu1,nu2,g=0.46,q=1.15,screen=False,fresnel=False):
 
 
 class PulsarNoise:
+    '''
+    Container class for all pulsar-related variables
+    '''
     def __init__(self,name,alpha=1.6,dtd=None,dnud=None,taud=None,C1=1.16,I_0=18.0,DM=0.0,D=1.0,Uscale=1.0,tauvar=None,Weffs=None,W50s=None,sigma_Js=None,P=None):
         self.name = name
 
@@ -190,6 +188,13 @@ class PulsarNoise:
 
 
 class GalacticNoise:
+    '''
+    Container class for all Galaxy-related variables.
+
+    beta: Galactic-background spectral index
+    T_e (K) [deprecated]: Electron temperature
+    fillingfactor [deprecated]: Filling factor of electrons
+    '''
     def __init__(self,beta=2.75,T_e=100.0,fillingfactor=0.2):
         self.beta = beta
         self.T_e = T_e
@@ -197,6 +202,17 @@ class GalacticNoise:
 
 
 class TelescopeNoise:
+    '''
+    Container class for all Telescope-related variables.
+
+    gain (K/Jy): Telescope gain
+    T_const (K): System temperature plus other constant temperatures
+    epsilon: Polarization fractional gain error (\delta g/g)
+    pi_V: Degree of circular polarization
+    eta: Voltage cross-coupling coefficient
+    pi_L: Degree of linear polarization
+    T (s): Integration time 
+    '''
     def __init__(self,gain,T_const,epsilon=0.08,pi_V=0.1,eta=0.0,pi_L=0.0,T=1800.0):
         self.gain = gain
         self.T_const = T_const
@@ -211,6 +227,10 @@ class TelescopeNoise:
 
 
 class FrequencyOptimizer:
+    '''
+    Primary class for frequency optimization
+    '''
+    
     def __init__(self,psrnoise,galnoise,telnoise,numin=0.01,numax=10.0,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,vverbose=False,full_bandwidth=False,masks=None,levels=LEVELS,colors=COLORS,lws=LWS):
 
 
@@ -288,7 +308,7 @@ class FrequencyOptimizer:
 
     def build_template_fitting_cov_matrix(self,nus,nuref=1.0):
         '''
-        
+        Constructs the template-fitting error (i.e., from finite signal-to-noise ratio) covariance matrix
         '''
         
         Weffs = self.psrnoise.Weffs
@@ -341,6 +361,9 @@ class FrequencyOptimizer:
         return np.matrix(np.diag(sigmas**2))
         
     def build_jitter_cov_matrix(self):
+        '''
+        Constructs the jitter error covariance matrix
+        '''
         sigma_Js = self.psrnoise.sigma_Js
         if type(sigma_Js) != np.ndarray:
             sigma_Js = np.zeros(self.nchan)+sigma_Js
