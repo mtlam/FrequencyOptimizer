@@ -582,6 +582,7 @@ class FrequencyOptimizer:
 
 
     def calc(self):
+        print("Computing for pulsar: %s"%self.psrnoise.name)
         self.sigmas = np.zeros((len(self.Cs),len(self.Bs)))
         if self.frac_bw == False:
             for ic,C in enumerate(self.Cs):
