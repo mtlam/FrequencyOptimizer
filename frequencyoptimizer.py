@@ -377,6 +377,9 @@ class FrequencyOptimizer:
 
         
     def scattering_modifications(self,tauds,Weffs,filename="ampratios.npz",directory=None):
+        '''
+        Takes the calculations of the convolved Gaussian-exponential simulations and returns the multiplicative factor applies to the template-fitting errors
+        '''
         if len(glob.glob(filename))!=1:
             if directory is None:
                 directory = __file__.split("/")[0] + "/"
@@ -405,46 +408,11 @@ class FrequencyOptimizer:
         return retval
         
 
-    def get_channels(self,nus,nuref=1.0,C1=1.16,etat=0.2,etanu=0.2):
 
-        #Bs = np.logspace(MIN,2*MAX,(2*MAX-MIN)*nsteps+1)
-
-        numin = self.Bs[0]
-        numax = self.Bs[-1]
-
-        nus = self.Bs
-
-        nsteps = 50
-        numin = 0.01
-        numax = 10.0
-        MIN = np.log10(numin)
-        MAX = np.log10(2*numax)
-        #nus = np.logspace(MIN,2*MAX,(2*MAX-MIN)*nsteps+1) #2*MAX or np.log10(2*numax)?
-        nus = np.logspace(MIN,MAX,(MAX-MIN)*nsteps+1) #2*MAX or np.log10(2*numax)?
-
-
-        B = self.get_bandwidths(nus)
-        dtd = DISS.scale_dt_d(self.psrnoise.dtd,nuref,nus)
-        dnud = DISS.scale_dnu_d(self.psrnoise.dnud,nuref,nus)
-        taud = DISS.scale_tau_d(self.psrnoise.taud,nuref,nus)
-
-        niss = (1 + etanu* B/dnud) * (1 + etat* self.telnoise.T/dtd) 
-
-        for i,nu in enumerate(nus):
-            print nu,niss[i]
-
-
-        raise SystemExit
-        pass
-        
-    def scintillation_noise(self,nus,nuref=1.0,C1=1.16,etat=0.2,etanu=0.2):
+    def build_scintillation_cov_matrix(self,nus,nuref=1.0,C1=1.16,etat=0.2,etanu=0.2):
         '''
-        dtd0 in seconds
-        dnud0 in GHz
-        Uses an internal nsteps
+        Constructs the scintillation (finite-scintle effect) error covariance matrix
         '''
-
-        #self.get_channels(nus)
 
         numin = nus[0]
         numax = nus[-1]
@@ -466,17 +434,17 @@ class FrequencyOptimizer:
             for j in inds:
                 retval[i,j] = sigmas[i] * sigmas[j] #close enough?
         return retval
-
         #return np.matrix(np.diag(sigmas**2)) #these will be independent IF niss is large
         
         
 
 
 
-
-
     # Using notation from signal processing notes, lecture 17
     def DM_misestimation(self,nus,errs,covmat=False,fullDMnu=True):
+        '''
+        Return sum of DM mis-estimation errors
+        '''
         N = len(nus)
         X = np.matrix(np.ones((N,2))) #design matrix
         for i,nu in enumerate(nus):
@@ -532,6 +500,9 @@ class FrequencyOptimizer:
 
         
     def build_polarization_cov_matrix(self):
+        '''
+        Constructs the polarization error covariance matrix
+        '''
         W50s = self.psrnoise.W50s
         if type(W50s) != np.ndarray:
             W50s = np.zeros(self.nchan)+W50s
@@ -553,9 +524,12 @@ class FrequencyOptimizer:
 
 
     def calc_single(self,nus):
+        '''
+        Calculate sigma_TOA given a selection of frequencies
+        '''
         sncov = self.build_template_fitting_cov_matrix(nus)
         jittercov = self.build_jitter_cov_matrix() #needs to have same length as nus!
-        disscov = self.scintillation_noise(nus) 
+        disscov = self.build_scintillation_cov_matrix(nus) 
         cov = sncov + jittercov + disscov
 
         sigma2 = epoch_averaged_error(cov,var=True)
@@ -605,6 +579,9 @@ class FrequencyOptimizer:
 
 
     def calc(self):
+        '''
+        Run a full calculation over a grid of frequencies
+        '''
         print("Computing for pulsar: %s"%self.psrnoise.name)
         self.sigmas = np.zeros((len(self.Cs),len(self.Bs)))
         if self.frac_bw == False:
@@ -646,6 +623,9 @@ class FrequencyOptimizer:
 
 
     def plot(self,filename="triplot.png",doshow=True,figsize=(8,6),save=True,minimum=None,points=None,colorbararrow=None):
+        '''
+        Create the triangle plots as in the optimal frequencies paper.
+        '''
         fig = figure(figsize=figsize)
         ax = fig.add_subplot(111)
         if self.frac_bw == False:
@@ -794,6 +774,9 @@ class FrequencyOptimizer:
             close()
 
     def save(self,filename):
+        '''
+        Output the results of the grid runs to a file
+        '''
         if self.frac_bw == False:
             np.savez(filename,Cs=self.Cs,Bs=self.Bs,sigmas=self.sigmas)
         else:
