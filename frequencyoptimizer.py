@@ -503,17 +503,22 @@ class FrequencyOptimizer:
     def build_DMnu_cov_matrix(self,nus,g=0.46,q=1.15,screen=False,fresnel=False,nuref=1.0):
         '''
         Constructs the frequency-dependent DM error covariance matrix
-        FOO
         '''
 
         dnud = DISS.scale_dnu_d(self.psrnoise.dnud,nuref,nus)
 
 
 
-        # Construct the matrix
+        # Construct the matrix, this could be sped up by a factor of two
         retval = np.matrix(np.zeros((len(nus),len(nus))))
         for i in range(len(nus)):
             for j in range(len(nus)):
+
+                # ignorant speed up
+                if retval[j,i] != 0.0:
+                    retval[i,j] = retval[j,i]
+                    continue
+                
                 #nu2 should be less than nu1
                 if nus[i] > nus[j]: 
                     nu1 = nus[i]
