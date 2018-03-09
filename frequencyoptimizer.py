@@ -213,7 +213,7 @@ class TelescopeNoise:
     pi_L: Degree of linear polarization
     T (s): Integration time 
     '''
-    def __init__(self,gain,T_const,epsilon=0.08,pi_V=0.1,eta=0.0,pi_L=0.0,T=1800.0):
+    def __init__(self,gain,T_const,epsilon=0.08,pi_V=0.1,eta=0.0,pi_L=0.0,T=1800.0,Npol=2):
         self.gain = gain
         self.T_const = T_const
         self.epsilon = epsilon
@@ -221,6 +221,7 @@ class TelescopeNoise:
         self.eta = eta
         self.pi_L = pi_L
         self.T = T
+        self.Npol = Npol
 
 
 
@@ -324,13 +325,11 @@ class FrequencyOptimizer:
         if self.psrnoise.DM != 0.0 and self.psrnoise.D != 0.0 and self.galnoise.T_e != 0.0 and self.galnoise.fillingfactor != 0:
             tau = 1.417e-6 * (self.galnoise.fillingfactor/0.2)**-1 * self.psrnoise.DM**2 * self.psrnoise.D**-1 * np.power(self.galnoise.T_e/100,-1.35)
 
-        numer =  (self.psrnoise.I_0 * 1e-3) * np.power(nus/nuref,-1*self.psrnoise.alpha)*np.sqrt(2*B*1e9*self.telnoise.T) # Factor of 2 comes from number of polarizations.
+        numer =  (self.psrnoise.I_0 * 1e-3) * np.power(nus/nuref,-1*self.psrnoise.alpha)*np.sqrt(sel.telnoise.Npol*B*1e9*self.telnoise.T) 
         #* np.exp(-1*tau*np.power(nus/nuref,-2.1)) #
 
-        #denom = (2760.0 / self.psrnoise.A_e) * Tsys        
         denom = Tsys / self.telnoise.gain
-        S = self.psrnoise.Uscale*numer/denom 
-        # S is the mean S/N over all phase. Need to adjust by the factor Ks.
+        S = self.psrnoise.Uscale*numer/denom # numer/denom is the mean S/N over all phase. Need to adjust by the factor Uscale.
 
         
         #print numer,denom
