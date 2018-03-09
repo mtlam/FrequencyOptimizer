@@ -121,6 +121,7 @@ def F_beta(r,beta=11.0/3):
 def E_beta(r,beta=11.0/3):
     r2 = r**2
     return np.abs(r2 / (r2-1)) * F_beta(r,beta)
+
 def evalDMnuError(dnuiss,nu1,nu2,g=0.46,q=1.15,screen=False,fresnel=False):
     # nu2 should be less than nu1
     # nu in GHz, dnuiss in GHz
@@ -325,7 +326,7 @@ class FrequencyOptimizer:
         if self.psrnoise.DM != 0.0 and self.psrnoise.D != 0.0 and self.galnoise.T_e != 0.0 and self.galnoise.fillingfactor != 0:
             tau = 1.417e-6 * (self.galnoise.fillingfactor/0.2)**-1 * self.psrnoise.DM**2 * self.psrnoise.D**-1 * np.power(self.galnoise.T_e/100,-1.35)
 
-        numer =  (self.psrnoise.I_0 * 1e-3) * np.power(nus/nuref,-1*self.psrnoise.alpha)*np.sqrt(sel.telnoise.Npol*B*1e9*self.telnoise.T) 
+        numer =  (self.psrnoise.I_0 * 1e-3) * np.power(nus/nuref,-1*self.psrnoise.alpha)*np.sqrt(self.telnoise.Npol*B*1e9*self.telnoise.T) 
         #* np.exp(-1*tau*np.power(nus/nuref,-2.1)) #
 
         denom = Tsys / self.telnoise.gain
@@ -440,7 +441,7 @@ class FrequencyOptimizer:
 
 
     # Using notation from signal processing notes, lecture 17
-    def DM_misestimation(self,nus,errs,covmat=False,fullDMnu=True):
+    def DM_misestimation(self,nus,errs,covmat=False):#,fullDMnu=True):
         '''
         Return sum of DM mis-estimation errors
         '''
@@ -464,11 +465,12 @@ class FrequencyOptimizer:
         # for now, ignore covariances and simply return the t_inf error    
         template_fitting_var = P[0,0] 
 
-        # Frequency-Dependent DM
-        if fullDMnu:
-            DM_nu_var = evalDMnuError(self.psrnoise.dnud,np.max(nus),np.min(nus))**2 / 25.0
-        else:
-            DM_nu_var = evalDMnuError(self.psrnoise.dnud,np.max(nus),np.min(nus))**2 / 25.0
+        ## Frequency-Dependent DM
+        #DM_nu_var = evalDMnuError(self.psrnoise.dnud,np.max(nus),np.min(nus))**2 / 25.0
+        DM_nu_var = evalDMnuError(self.psrnoise.dnud,np.max(nus),np.min(nus))**2 / 25.0
+        
+        DM_nu_cov = self.build_DMnu_cov_matrix(nus)
+        DM_nu_var = epoch_averaged_error(DM_nu_cov,var=True)
 
 
         # PBF errors (scattering), included already in cov matrix?
@@ -495,6 +497,36 @@ class FrequencyOptimizer:
 
 
 
+    def build_DMnu_cov_matrix(self,nus,g=0.46,q=1.15,screen=False,fresnel=False,nuref=1.0):
+        '''
+        Constructs the frequency-dependent DM error covariance matrix
+        FOO
+        '''
+
+        dnud = DISS.scale_dnu_d(self.psrnoise.dnud,nuref,nus)
+
+
+
+        # Construct the matrix
+        retval = np.matrix(np.zeros((len(nus),len(nus))))
+        for i in range(len(nus)):
+            for j in range(len(nus)):
+                #nu2 should be less than nu1
+                if nus[i] > nus[j]: 
+                    nu1 = nus[i]
+                    nu2 = nus[j]
+                    dnuiss = dnud[i]
+                else:
+                    nu1 = nus[j]
+                    nu2 = nus[i]
+                    dnuiss = dnud[j]
+
+                if nu1 == nu2:
+                    continue # already set to zero
+                retval[i,j] = evalDMnuError(dnuiss,nu1,nu2,g=g,q=q,screen=screen,fresnel=fresnel)
+        return retval
+
+        
 
 
         
