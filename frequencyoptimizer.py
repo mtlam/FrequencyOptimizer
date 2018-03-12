@@ -471,10 +471,17 @@ class FrequencyOptimizer:
         if self.full:
             DM_nu_cov = self.build_DMnu_cov_matrix(nus)
             DM_nu_var = epoch_averaged_error(DM_nu_cov,var=True)
+            #print nus
+            # FOO
+            #print DM_nu_cov
+            #print DM_nu_var
+            if DM_nu_var < 0.0:# or np.isnan(DM_nu_var): #why
+                DM_nu_var = 0 
         else: # [deprecated], please be aware!
             DM_nu_var = evalDMnuError(self.psrnoise.dnud,np.max(nus),np.min(nus))**2 / 25.0
-        
 
+
+        
 
         # PBF errors (scattering), included already in cov matrix?
         # Scattering error, assume this is proportional to nu^-4.4? or 4?
@@ -514,10 +521,14 @@ class FrequencyOptimizer:
         for i in range(len(nus)):
             for j in range(len(nus)):
 
-                # ignorant speed up
-                if retval[j,i] != 0.0:
-                    retval[i,j] = retval[j,i]
-                    continue
+                if nus[i] == nus[j]:
+                    continue # already set to zero
+                
+                # speed up
+                #if retval[j,i] != 0.0:
+                #    continue
+                #    retval[i,j] = retval[j,i]
+                #    continue
                 
                 #nu2 should be less than nu1
                 if nus[i] > nus[j]: 
@@ -528,10 +539,13 @@ class FrequencyOptimizer:
                     nu1 = nus[j]
                     nu2 = nus[i]
                     dnuiss = dnud[j]
+                #dnuiss = DISS.scale_dnu_d(self.psrnoise.dnud,nuref,nu1) #correct direction now, but should be nu1?
+                    
+                sigma = evalDMnuError(dnuiss,nu1,nu2,g=g,q=q,screen=screen,fresnel=fresnel)
 
-                if nu1 == nu2:
-                    continue # already set to zero
-                retval[i,j] = evalDMnuError(dnuiss,nu1,nu2,g=g,q=q,screen=screen,fresnel=fresnel)
+                retval[i,j] = sigma**2
+                #retval[j,i] = sigma**2
+            #raise SystemExit
         return retval
 
         
@@ -569,6 +583,8 @@ class FrequencyOptimizer:
         sncov = self.build_template_fitting_cov_matrix(nus)
         jittercov = self.build_jitter_cov_matrix() #needs to have same length as nus!
         disscov = self.build_scintillation_cov_matrix(nus) 
+
+
         cov = sncov + jittercov + disscov
 
         sigma2 = epoch_averaged_error(cov,var=True)
@@ -593,7 +609,6 @@ class FrequencyOptimizer:
         sigmatel2 = epoch_averaged_error(self.build_polarization_cov_matrix())
 
 
-        
         sigmadm2 = self.DM_misestimation(nus,cov,covmat=True)**2
 
 
