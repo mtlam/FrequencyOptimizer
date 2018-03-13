@@ -9,6 +9,9 @@ import matplotlib.patches as patches
 import DISS
 import glob
 import warnings
+import parallel
+
+
 
 rc('text',usetex=True)
 rc('font',**{'family':'serif','serif':['Times New Roman'],'size':14})#,'weight':'bold'})
@@ -233,7 +236,7 @@ class FrequencyOptimizer:
     Primary class for frequency optimization
     '''
     
-    def __init__(self,psrnoise,galnoise,telnoise,numin=0.01,numax=10.0,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,vverbose=False,full_bandwidth=False,masks=None,levels=LEVELS,colors=COLORS,lws=LWS,full=True):
+    def __init__(self,psrnoise,galnoise,telnoise,numin=0.01,numax=10.0,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,vverbose=False,full_bandwidth=False,masks=None,levels=LEVELS,colors=COLORS,lws=LWS,full=True,ncpu=1):
 
 
 
@@ -291,6 +294,7 @@ class FrequencyOptimizer:
         self.colors = colors
         self.lws = lws
         self.full = full
+        self.ncpu = ncpu
 
     def template_fitting_error(self,S,Weff=100.0,Nphi=2048): #Weff in microseconds
         return Weff / (S * np.sqrt(Nphi))
@@ -475,7 +479,7 @@ class FrequencyOptimizer:
             # FOO
             #print DM_nu_cov
             #print DM_nu_var
-            if DM_nu_var < 0.0:# or np.isnan(DM_nu_var): #why
+            if DM_nu_var < 0.0:# or np.isnan(DM_nu_var): #no longer needed
                 DM_nu_var = 0 
         else: # [deprecated], please be aware!
             DM_nu_var = evalDMnuError(self.psrnoise.dnud,np.max(nus),np.min(nus))**2 / 25.0
@@ -488,9 +492,7 @@ class FrequencyOptimizer:
         chromatic_components = self.psrnoise.tauvar * np.power(nus,-4.4)
         scattering_var = np.dot(np.dot(np.dot(P,XT),VI),chromatic_components)[0,0]**2
 
-        # test
-        #DM_nu_var = 0.0
-        #scattering_var = 0.0
+
 
 
         retval = np.sqrt(template_fitting_var + DM_nu_var + scattering_var)
@@ -617,8 +619,6 @@ class FrequencyOptimizer:
 
         if self.vverbose:
             print("Telescope noise: %0.3f us"%np.sqrt(sigmatel2))
-        # Test
-        #sigma = np.sqrt(sigma2)
 
 
         if self.vverbose:
@@ -639,10 +639,13 @@ class FrequencyOptimizer:
         print("Computing for pulsar: %s"%self.psrnoise.name)
         self.sigmas = np.zeros((len(self.Cs),len(self.Bs)))
         if self.frac_bw == False:
-            for ic,C in enumerate(self.Cs):
+            def loop_func(ic):
+                C = self.Cs[ic]
+                #sigmas = np.zeros(len(self.Bs))
                 if self.verbose:
                     print("Computing center freq %0.3f GHz (%i/%i)"%(C,ic,len(self.Cs)))
                 for ib,B in enumerate(self.Bs):
+                    #print C,B
                     if B > 1.9*C:
                         self.sigmas[ic,ib] = np.nan
                     else:
@@ -653,8 +656,16 @@ class FrequencyOptimizer:
                             nus = np.linspace(nulow,nuhigh,self.nchan+1)[:-1] #more uniform sampling?
                         else:
                             nus = np.logspace(np.log10(nulow),np.log10(nuhigh),self.nchan+1)[:-1] #more uniform sampling?   
-
                         self.sigmas[ic,ib] = self.calc_single(nus)
+
+            if self.ncpu == 1:
+                for ic,C in enumerate(self.Cs):
+                    loop_func(ic)
+            else: #should set export OPENBLAS_NUM_THREADS=1
+                if self.verbose:
+                    print("Attempting multiprocessing, nprocs=%s"%str(self.ncpu))
+                parallel.parmap(loop_func,range(len(self.Cs)),nprocs=self.ncpu)
+
         else:
             for ic,C in enumerate(self.Cs):
                 print(ic,len(self.Cs),C)
