@@ -11,6 +11,8 @@ import glob
 import warnings
 import parallel
 
+    
+
 
 
 rc('text',usetex=True)
@@ -658,16 +660,9 @@ class FrequencyOptimizer:
                             nus = np.logspace(np.log10(nulow),np.log10(nuhigh),self.nchan+1)[:-1] #more uniform sampling?   
                         self.sigmas[ic,ib] = self.calc_single(nus)
 
-            if self.ncpu == 1:
-                for ic,C in enumerate(self.Cs):
-                    loop_func(ic)
-            else: #should set export OPENBLAS_NUM_THREADS=1
-                if self.verbose:
-                    print("Attempting multiprocessing, nprocs=%s"%str(self.ncpu))
-                parallel.parmap(loop_func,range(len(self.Cs)),nprocs=self.ncpu)
-
         else:
-            for ic,C in enumerate(self.Cs):
+            def loop_func(ic):
+                C = self.Cs[ic]
                 print(ic,len(self.Cs),C)
                 for indf,F in enumerate(self.Fs):
                     B = C*F
@@ -685,6 +680,13 @@ class FrequencyOptimizer:
 
                         self.sigmas[ic,indf] = self.calc_single(nus)
 
+        if self.ncpu == 1:
+            for ic,C in enumerate(self.Cs):
+                loop_func(ic)
+        else: #should set export OPENBLAS_NUM_THREADS=1
+            if self.verbose:
+                print("Attempting multiprocessing, nprocs=%s"%str(self.ncpu))
+            parallel.parmap(loop_func,range(len(self.Cs)),nprocs=self.ncpu)
 
 
     def plot(self,filename="triplot.png",doshow=True,figsize=(8,6),save=True,minimum=None,points=None,colorbararrow=None):
