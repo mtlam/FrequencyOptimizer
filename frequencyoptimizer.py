@@ -643,7 +643,7 @@ class FrequencyOptimizer:
         if self.frac_bw == False:
             def loop_func(ic):
                 C = self.Cs[ic]
-                #sigmas = np.zeros(len(self.Bs))
+                sigmas = np.zeros(len(self.Bs))
                 if self.verbose:
                     print("Computing center freq %0.3f GHz (%i/%i)"%(C,ic,len(self.Cs)))
                 for ib,B in enumerate(self.Bs):
@@ -657,13 +657,18 @@ class FrequencyOptimizer:
                         if self.log == False:
                             nus = np.linspace(nulow,nuhigh,self.nchan+1)[:-1] #more uniform sampling?
                         else:
-                            nus = np.logspace(np.log10(nulow),np.log10(nuhigh),self.nchan+1)[:-1] #more uniform sampling?   
-                        self.sigmas[ic,ib] = self.calc_single(nus)
+                            nus = np.logspace(np.log10(nulow),np.log10(nuhigh),self.nchan+1)[:-1] #more uniform sampling?
+                        sigmas[ib] = self.calc_single(nus)
+                        #self.sigmas[ic,ib] = self.calc_single(nus)
+                        #print self.sigmas[ic,ib]
+                return sigmas
 
         else:
             def loop_func(ic):
                 C = self.Cs[ic]
-                print(ic,len(self.Cs),C)
+                sigmas = np.zeros(len(self.Fs))
+                if verbose:
+                    print(ic,len(self.Cs),C)
                 for indf,F in enumerate(self.Fs):
                     B = C*F
                     if B > 1.9*C or B <= 0:
@@ -678,15 +683,17 @@ class FrequencyOptimizer:
                         else:
                             nus = np.logspace(np.log10(nulow),np.log10(nuhigh),self.nchan+1)[:-1] #more uniform sampling?   
 
-                        self.sigmas[ic,indf] = self.calc_single(nus)
+                        #self.sigmas[ic,indf] = self.calc_single(nus)
+                        sigmas[indf] = self.calc_single(nus)
+                return sigmas
 
         if self.ncpu == 1:
             for ic,C in enumerate(self.Cs):
-                loop_func(ic)
+                self.sigmas[ic,:] = loop_func(ic)
         else: #should set export OPENBLAS_NUM_THREADS=1
             if self.verbose:
                 print("Attempting multiprocessing, nprocs=%s"%str(self.ncpu))
-            parallel.parmap(loop_func,range(len(self.Cs)),nprocs=self.ncpu)
+            self.sigmas[:,:] = parallel.parmap(loop_func,range(len(self.Cs)),nprocs=self.ncpu)
 
 
     def plot(self,filename="triplot.png",doshow=True,figsize=(8,6),save=True,minimum=None,points=None,colorbararrow=None):
