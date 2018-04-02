@@ -738,7 +738,8 @@ class FrequencyOptimizer:
             if minimum is not None:
                 data = np.log10(self.sigmas)
                 flatdata = data.flatten()
-                inds = np.where(np.logical_not(np.isnan(flatdata)))[0]
+                #inds = np.where(np.logical_not(np.isnan(flatdata)))[0]
+                inds = np.where((~np.isnan(flatdata))&~(np.isinf(flatdata)))[0]
                 MIN = np.min(flatdata[inds])
                 INDC,INDB = np.where(data==MIN)
                 INDC,INDB = INDC[0],INDB[0]
@@ -777,7 +778,8 @@ class FrequencyOptimizer:
             if colorbararrow is not None:
                 data = np.log10(self.sigmas)
                 flatdata = data.flatten()
-                inds = np.where(np.logical_not(np.isnan(flatdata)))[0]
+                #inds = np.where(np.logical_not(np.isnan(flatdata)))[0]
+                inds = np.where((~np.isnan(flatdata))&~(np.isinf(flatdata)))[0]
                 MIN = np.min(flatdata[inds])
                 MAX = np.max(flatdata[inds])
                 if self.log == True:
