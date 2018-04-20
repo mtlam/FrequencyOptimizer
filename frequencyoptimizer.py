@@ -736,15 +736,16 @@ class FrequencyOptimizer:
                 ax.text(0.05,0.9,"PSR~%s"%self.psrnoise.name.replace("-","$-$"),fontsize=18,transform=ax.transAxes,bbox=dict(boxstyle="square",fc="white"))
 
             if minimum is not None:
-                data = np.log10(self.sigmas)
-                flatdata = data.flatten()
+                checkdata = np.log10(self.sigmas)
+                flatdata = checkdata.flatten()
                 #inds = np.where(np.logical_not(np.isnan(flatdata)))[0]
                 inds = np.where((~np.isnan(flatdata))&~(np.isinf(flatdata)))[0]
                 MIN = np.min(flatdata[inds])
-                INDC,INDB = np.where(data==MIN)
+                INDC,INDB = np.where(checkdata==MIN)
                 INDC,INDB = INDC[0],INDB[0]
                 MINB = self.Bs[INDB]
                 MINC = self.Cs[INDC]
+                cax = ax.contour(data,extent=np.log10(np.array([self.Cs[0],self.Cs[-1],self.Bs[0],self.Bs[-1]])),colors=['b','b'],levels=[np.log10(1.1*(10**MIN)),np.log10(1.5*(10**MIN))],linewidths=[1,1],linestyles=['--','--'],origin='lower')
                 print("Minimum",MINC,MINB,MIN)
                 with open("minima.txt",'a') as FILE:
                     FILE.write("%s minima %f %f %f\n"%(self.psrnoise.name,MINC,MINB,MIN))
