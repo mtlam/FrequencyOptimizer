@@ -87,6 +87,7 @@ LEVELS = np.array([np.log10(0.125),np.log10(0.25),np.log10(0.5),np.log10(1.0)])
 LEVELS = np.array([np.log10(0.25),np.log10(0.5),np.log10(1.0),np.log10(2.0),np.log10(5.0)])
 LEVELS = np.array([np.log10(0.25),np.log10(0.5),np.log10(1.0),np.log10(2.0),np.log10(5.0)])
 LEVELS = np.array([np.log10(0.5),np.log10(1.0),np.log10(2.0),np.log10(5.0),np.log10(10.0)])
+LEVELS = np.array([np.log10(0.1),np.log10(0.2),np.log10(0.5),np.log10(1.0),np.log10(2.0)])
 #LEVELS = np.array([np.log10(0.5),np.log10(1.0),np.log10(2.0),np.log10(5.0),np.log10(10.0),np.log10(20.0)])
 
 COLORS = ['k','0.25','0.5','0.75']
