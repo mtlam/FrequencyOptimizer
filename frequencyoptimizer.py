@@ -154,7 +154,11 @@ class PulsarNoise:
     def __init__(self,name,alpha=1.6,dtd=None,dnud=None,taud=None,C1=1.16,I_0=18.0,DM=0.0,D=1.0,Uscale=1.0,tauvar=None,Weffs=None,W50s=None,sigma_Js=None,P=None):
         self.name = name
 
-        self.dtd = dtd
+        if dtd is None:
+            #Assume dtd is large?
+            self.dtd = 10000.0
+        else:
+            self.dtd = dtd
 
         if taud is None and dnud is None:
             # Assume taud is 0 and dnud is very large
