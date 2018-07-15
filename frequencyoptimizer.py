@@ -156,7 +156,11 @@ class PulsarNoise:
 
         self.dtd = dtd
 
-        if taud is None:
+        if taud is None and dnud is None:
+            # Assume taud is 0 and dnud is very large
+            self.taud = 0.0
+            self.dnud = 10000.0
+        elif taud is None:
             self.dnud = dnud
             self.taud = 1e-3 * C1/(2*np.pi*dnud) #taud0 in ns -> us
         elif dnud is None:
