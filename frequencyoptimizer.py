@@ -151,7 +151,7 @@ class PulsarNoise:
     '''
     Container class for all pulsar-related variables
     '''
-    def __init__(self,name,alpha=1.6,dtd=None,dnud=None,taud=None,C1=1.16,I_0=18.0,DM=0.0,D=1.0,Uscale=1.0,tauvar=None,Weffs=None,W50s=None,sigma_Js=None,P=None):
+    def __init__(self,name,alpha=1.6,dtd=None,dnud=None,taud=None,C1=1.16,I_0=18.0,DM=0.0,D=1.0,Uscale=1.0,tauvar=None,Weffs=0.0,W50s=0.0,sigma_Js=0.0,P=None):
         self.name = name
 
         if dtd is None:
