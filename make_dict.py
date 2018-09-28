@@ -1,11 +1,13 @@
-infile = open("psr_info.txt", "r")
+import sys
+
+infile = open(sys.argv[1], "r")
 
 lines = infile.readlines()
 lines = [line.strip() for line in lines]
 
 keys = lines[0].split()
 
-print("nanograv_psrs = {")
+print("psrs = {")
 
 for line in lines[1:]:
     sline = line.split()
@@ -19,4 +21,3 @@ for line in lines[1:]:
             print("        \"%s\" : %f,"%(keys[ii],float(value)))               
     print("    },")
 print("}")
-
