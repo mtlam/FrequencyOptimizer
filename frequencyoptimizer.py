@@ -228,7 +228,7 @@ class TelescopeNoise:
     pi_L: Degree of linear polarization
     T (s): Integration time 
     '''
-    def __init__(self,gain,T_const,epsilon=0.08,pi_V=0.1,eta=0.0,pi_L=0.0,T=1800.0,Npol=2):
+    def __init__(self,gain,T_const,epsilon=0.08,pi_V=0.1,eta=0.0,pi_L=0.0,T=1800.0,Npol=2,rx_nu=None,interpolate=False):
         self.gain = gain
         self.T_const = T_const
         self.epsilon = epsilon
@@ -237,6 +237,22 @@ class TelescopeNoise:
         self.pi_L = pi_L
         self.T = T
         self.Npol = Npol
+        self.rx_nu = rx_nu
+        self.interpolate = interpolate
+
+    def get_gain(self,nu):
+        if self.interpolate: return np.interp(nu,self.rx_nu,self.gain)
+        else: return self.gain
+    def get_epsilon(self,nu):
+        if self.interpolate: return np.interp(nu,self.rx_nu,self.epsilon)
+        else: return self.epsilon
+    def get_pi_V(self,nu):
+        if self.interpolate: return np.interp(nu,self.rx_nu,self.pi_V)
+        else: return self.pi_V
+    def get_T_const(self,nu):
+        if self.interpolate: return np.interp(nu,self.rx_nu,self.T_const)
+        else: return self.T
+    
 
 
 
@@ -335,7 +351,7 @@ class FrequencyOptimizer:
         B = self.get_bandwidths(nus)
        
 
-        Tsys = self.telnoise.T_const + 20 * np.power(nus/0.408,-1*self.galnoise.beta)
+        Tsys = self.telnoise.get_T_const(nus) + 20 * np.power(nus/0.408,-1*self.galnoise.beta)
 
         
         tau = 0.0
@@ -345,7 +361,7 @@ class FrequencyOptimizer:
         numer =  (self.psrnoise.I_0 * 1e-3) * np.power(nus/nuref,-1*self.psrnoise.alpha)*np.sqrt(self.telnoise.Npol*B*1e9*self.telnoise.T) 
         #* np.exp(-1*tau*np.power(nus/nuref,-2.1)) #
 
-        denom = Tsys / self.telnoise.gain
+        denom = Tsys / self.telnoise.get_gain(nus)
         S = self.psrnoise.Uscale*numer/denom # numer/denom is the mean S/N over all phase. Need to adjust by the factor Uscale.
 
         
@@ -565,24 +581,25 @@ class FrequencyOptimizer:
 
 
         
-    def build_polarization_cov_matrix(self):
+    def build_polarization_cov_matrix(self,nus):
         '''
         Constructs the polarization error covariance matrix
         '''
         W50s = self.psrnoise.W50s
         if type(W50s) != np.ndarray:
             W50s = np.zeros(self.nchan)+W50s
-        if type(self.telnoise.epsilon) != np.ndarray:
-            epsilon = np.zeros(self.nchan)+self.telnoise.epsilon
-        if type(self.telnoise.pi_V) != np.ndarray:
-            pi_V = np.zeros(self.nchan)+self.telnoise.pi_V
+        #if type(self.telnoise.get_epsilon(nus)) != np.ndarray:
+        #    epsilon = np.zeros(self.nchan)+self.telnoise.get_epsilon(nus)
+        #if type(self.telnoise.get_pi_V(nus)) != np.ndarray:
+        #    pi_V = np.zeros(self.nchan)+self.telnoise.get_pi_V(nus)
         if type(self.telnoise.eta) != np.ndarray:
             eta = np.zeros(self.nchan)+self.telnoise.eta
         if type(self.telnoise.pi_L) != np.ndarray:
             pi_L = np.zeros(self.nchan)+self.telnoise.pi_L
 
 
-
+        epsilon = self.telnoise.get_epsilon(nus)
+        pi_V = self.telnoise.get_pi_V(nus)
         sigmas = epsilon*pi_V*(W50s/100.0) #W50s in microseconds #do more?
         sigmasprime = 2 * np.sqrt(eta) * pi_L #Actually use this
         return np.matrix(np.diag(sigmas**2))
@@ -619,7 +636,7 @@ class FrequencyOptimizer:
 
         
         
-        sigmatel2 = epoch_averaged_error(self.build_polarization_cov_matrix())
+        sigmatel2 = epoch_averaged_error(self.build_polarization_cov_matrix(nus))
 
 
         sigmadm2 = self.DM_misestimation(nus,cov,covmat=True)**2
