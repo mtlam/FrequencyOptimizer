@@ -246,9 +246,6 @@ class TelescopeNoise:
     def get_epsilon(self,nu):
         if self.interpolate: return np.interp(nu,self.rx_nu,self.epsilon)
         else: return self.epsilon
-    def get_pi_V(self,nu):
-        if self.interpolate: return np.interp(nu,self.rx_nu,self.pi_V)
-        else: return self.pi_V
     def get_T_const(self,nu):
         if self.interpolate: return np.interp(nu,self.rx_nu,self.T_const)
         else: return self.T
@@ -590,8 +587,8 @@ class FrequencyOptimizer:
             W50s = np.zeros(self.nchan)+W50s
         #if type(self.telnoise.get_epsilon(nus)) != np.ndarray:
         #    epsilon = np.zeros(self.nchan)+self.telnoise.get_epsilon(nus)
-        #if type(self.telnoise.get_pi_V(nus)) != np.ndarray:
-        #    pi_V = np.zeros(self.nchan)+self.telnoise.get_pi_V(nus)
+        if type(self.telnoise.get_pi_V(nus)) != np.ndarray:
+            pi_V = np.zeros(self.nchan)+self.telnoise.get_pi_V(nus)
         if type(self.telnoise.eta) != np.ndarray:
             eta = np.zeros(self.nchan)+self.telnoise.eta
         if type(self.telnoise.pi_L) != np.ndarray:
@@ -599,7 +596,6 @@ class FrequencyOptimizer:
 
 
         epsilon = self.telnoise.get_epsilon(nus)
-        pi_V = self.telnoise.get_pi_V(nus)
         sigmas = epsilon*pi_V*(W50s/100.0) #W50s in microseconds #do more?
         sigmasprime = 2 * np.sqrt(eta) * pi_L #Actually use this
         return np.matrix(np.diag(sigmas**2))
