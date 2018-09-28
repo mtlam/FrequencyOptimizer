@@ -1,4 +1,4 @@
-PSR	P	DM	I_1GHz	spec_index	Uscale	W50	Weff	obs	Freq	BW	tobs	tsub	nbin	scat_ts	scat_ts_var	diss_ts	diss_bw	niss_fit	S-	S0	S+	rms_J1	rms_J1_UL	rms_red	rms_red_UL	rms_achr	rms_achr_UL	rms_chr	rms_chr_UL
+name	period	DM	flux_1GHz  spec_index	uscale	W50	Weff	obs	Freq	BW	tobs	tsub	nbin	scat_ts	scat_ts_var	diss_ts	diss_bw	niss_fit	S-	S0	S+	rms_J1	rms_J1_UL	rms_red	rms_red_UL	rms_achr	rms_achr_UL	rms_chr	rms_chr_UL
 B1855+09	5.3621	13.3	7.4	-1.5	8.442523	517.907428	750	AO	1.4	0.603	8.871	85.2	2048	0.0213	0.0453	1350	3.84	1.9	7.8	14.6	28	105.47	0	0.8563	0	0.8547	0	0.0465	1
 B1937+21	1.557807	71	28.8	-2.3	21.906848	36.93336	145	AO	1.4	0.603	9.1085	84.1	2048	0.0443	0.0885	301	2.07	4.1	70.6	122.1	203.5	6.12	0	0.7333	0	0.7327	0	0.0578	1
 B1953+29	6.133167	104.5	1.7	-2.7	8.000049	224.254078	823	AO	1.4	0.603	7.2465	84.6	2048	0.0553	None	293	2.14	11.2	3.5	4.3	5.6	173.94	0	1.6721	0	0.8308	1	0.6636	0
