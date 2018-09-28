@@ -1,3 +1,7 @@
+Note: Original code by Michael T. Lam
+https://github.com/mtlam/FrequencyOptimizer
+Modified by Ryan S. Lynch
+
 FrequencyOptimizer
 =======
 
