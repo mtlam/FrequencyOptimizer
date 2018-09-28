@@ -587,8 +587,8 @@ class FrequencyOptimizer:
             W50s = np.zeros(self.nchan)+W50s
         #if type(self.telnoise.get_epsilon(nus)) != np.ndarray:
         #    epsilon = np.zeros(self.nchan)+self.telnoise.get_epsilon(nus)
-        if type(self.telnoise.get_pi_V(nus)) != np.ndarray:
-            pi_V = np.zeros(self.nchan)+self.telnoise.get_pi_V(nus)
+        if type(self.telnoise.pi_V) != np.ndarray:
+            pi_V = np.zeros(self.nchan)+self.telnoise.pi_V
         if type(self.telnoise.eta) != np.ndarray:
             eta = np.zeros(self.nchan)+self.telnoise.eta
         if type(self.telnoise.pi_L) != np.ndarray:
