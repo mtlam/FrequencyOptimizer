@@ -11,7 +11,43 @@ NSTEPS = 16
 
 Tcmb = 3.0
 
-parser = ArgumentParser(description="Predict pulsar TOA precision")
+usage = """%(prog)s [options]
+
+Receiver/telescope parameters can be specified via a text file using
+the -r/--rx-specs argument.  The text file should have
+space-delineated columns of
+
+Frequency(GHz) Trx(K) Gain(K/Jy) FractionalGainError
+
+frequencyoptimizer.py will interpolate over these values at the
+frequencies of interest.  If nothing is specified for -r/--rx-specs,
+then frequency-independent receiver/telescope parameters will be taken
+from command line arguments with defaults as specified below.
+
+Pulsar parameters can be specified from a python dictionary or from
+command line options with defaults as specified below.  If using a
+python dictionary, then the dictionary file should contain one and
+only one dictionary of dictionaries, with the top-level keys being
+pulsar names, and the second-level keys/values being
+
+name - Pulsar name
+period - Pulsar period (ms)
+DM - Dispersion measure (pc/cc)
+flux_1GHz - Pulsar flux at 1 GHz (mJy)
+spec_index - Pulsar spectral index (S_nu \propto nu^\alpha)
+W50 - Pulse profile FWHM (us)
+Weff - Effective pulsar profile width (us)
+Uscale - Pulse profile scaling parameter
+rms_J1 - Single pulse RMS due to jitter (us)
+scat_ts - Scattering timescale at 1 GHz (us)
+scat_ts_var - Scattering timescale variability at 1 GHz (us)
+diss_ts - Diffractive interstellar scintillation timescale (s)
+
+The script make_dict.py can be used to convert a space-delineated text
+file with the above columns into a suitable dictionary.  See
+psr_info.py and psr_info.txt for examples."""
+
+parser = ArgumentParser(description="Predict pulsar TOA precision", usage=usage)
 rx_group = parser.add_argument_group(title="Receiver specs")
 pulsar_group = parser.add_argument_group(title="Pulsar parameters")
 rx_group.add_argument("-r", "--rx-specs", 
@@ -26,8 +62,6 @@ rx_group.add_argument("-G", "--gain", type=float, default=2.0,
                       help="Telescope gain (K/Jy; default=%(default)s)")
 rx_group.add_argument("-e", "--epsilon", type=float, default=0.01,
                       help="Fractional gain instability (default=%(default)s)")
-rx_group.add_argument("-p", "--pi", dest="pi_V", type=float, default=0.95,
-                      help="Polarization efficiency (default=%(default)s)")
 parser.add_argument("-t", "--tobs", type=float, default=1800.0, 
                     help="Observing time (s; default=%(default)s)")
 
@@ -71,7 +105,7 @@ args = parser.parse_args()
 
 if args.rx_specs is not None:
     interpolate = True
-    rx_freq,Trx,gain,epsilon,pi_V = np.loadtxt(args.rx_specs,unpack=True)
+    rx_freq,Trx,gain,epsilon = np.loadtxt(args.rx_specs,unpack=True)
     low_freq = np.min(rx_freq)
     high_freq = np.max(rx_freq)
     freqs = np.logspace(np.log10(low_freq),np.log10(high_freq),NCHAN)
@@ -80,7 +114,6 @@ else:
     Trx = args.Trx
     gain = args.gain
     epsilon = args.epsilon
-    pi_V = args.pi_V
     low_freq = args.low_freq
     high_freq = args.high_freq
     freqs = np.logspace(np.log10(low_freq),np.log10(high_freq),NCHAN)
@@ -88,19 +121,11 @@ else:
 
 if args.psr_dict is not None:
     import importlib
-    try:
-        psr_dict = importlib.import_module(args.psr_dict.rstrip(".py"))
-        for a in dir(psr_dict):
-            if not a.startswith("__"):
-                psrs = psr_dict.__getattribute__(a)
-                break
-    except ImportError:
-        with open(args.psr_dict) as f:
-            lines = [line.split() for line in f]
-            psrs = {}
-            for line in lines:
-                d = {line[0]: line[1] for line in lines}
-                psrs[d["name"]] = d
+    psr_dict = importlib.import_module(args.psr_dict.rstrip(".py"))
+    for a in dir(psr_dict):
+        if not a.startswith("__"):
+            psrs = psr_dict.__getattribute__(a)
+            break
 else:
     psrs = {args.name: {
         "name": args.name,
@@ -115,10 +140,9 @@ else:
         "scat_ts": args.scat_ts,
         "scat_ts_var": args.scat_ts_var,
         "diss_ts": args.diss_ts }}
-
 sigmas = []
 telescope_noise = TelescopeNoise(gain=gain,T_const=Trx+Tcmb,epsilon=epsilon,
-                                 pi_V=pi_V,T=args.tobs,rx_nu=rx_freq,
+                                 T=args.tobs,rx_nu=rx_freq,
                                  interpolate=interpolate)
 galactic_noise = GalacticNoise()
 for name,psr in psrs.items():
