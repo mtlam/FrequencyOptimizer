@@ -636,7 +636,6 @@ class FrequencyOptimizer:
             print("Total noise: %0.3f us"%sigma)
             print("")
 
-        
         if self.psrnoise.P is not None and sigma > self.psrnoise.P:
             return self.psrnoise.P
 
@@ -705,7 +704,7 @@ class FrequencyOptimizer:
             self.sigmas[:,:] = parallel.parmap(loop_func,range(len(self.Cs)),nprocs=self.ncpu)
 
 
-    def plot(self,filename="triplot.png",doshow=True,figsize=(8,6),save=True,minimum=None,points=None,colorbararrow=None):
+    def plot(self,filename="triplot.png",doshow=True,figsize=(8,6),save=True,minimum=None,points=None,colorbararrow=None,cmap=cm.inferno_r,**kwargs):
         '''
         Create the triangle plots as in the optimal frequencies paper.
         '''
@@ -714,13 +713,13 @@ class FrequencyOptimizer:
         if self.frac_bw == False:
             data = np.transpose(np.log10(self.sigmas))
             if self.log == False:
-                im = uimshow(data,extent=[self.Cs[0],self.Cs[-1],self.Bs[0],self.Bs[-1]],cmap=cm.inferno_r,ax=ax)
+                im = uimshow(data,extent=[self.Cs[0],self.Cs[-1],self.Bs[0],self.Bs[-1]],cmap=cmap,ax=ax,**kwargs)
 
                 ax.set_xlabel(r"$\mathrm{Center~Frequency~\nu_0~(GHz)}$")
                 ax.set_ylabel(r"$\mathrm{Bandwidth}~B~\mathrm{(GHz)}$")
             else:
 
-                im = uimshow(data,extent=np.log10(np.array([self.Cs[0],self.Cs[-1],self.Bs[0],self.Bs[-1]])),cmap=cm.inferno_r,ax=ax)
+                im = uimshow(data,extent=np.log10(np.array([self.Cs[0],self.Cs[-1],self.Bs[0],self.Bs[-1]])),cmap=cmap,ax=ax,**kwargs)
                 cax = ax.contour(data,extent=np.log10(np.array([self.Cs[0],self.Cs[-1],self.Bs[0],self.Bs[-1]])),colors=self.colors,levels=self.levels,linewidths=self.lws,origin='lower')
 
                 #https://stackoverflow.com/questions/18390068/hatch-a-nan-region-in-a-contourplot-in-matplotlib
@@ -814,7 +813,7 @@ class FrequencyOptimizer:
                 goodinds = np.array(goodinds)
                 data = np.transpose(np.log10(self.sigmas[:,goodinds]))
 
-                im = uimshow(data,extent=np.log10(np.array([self.Cs[0],self.Cs[-1],self.Fs[goodinds][0],self.Fs[goodinds][-1]])),cmap=cm.inferno_r,ax=ax)
+                im = uimshow(data,extent=np.log10(np.array([self.Cs[0],self.Cs[-1],self.Fs[goodinds][0],self.Fs[goodinds][-1]])),cmap=cmap,ax=ax,**kwargs)
                 cax = ax.contour(data,extent=np.log10(np.array([self.Cs[0],self.Cs[-1],self.Fs[goodinds][0],self.Fs[goodinds][-1]])),colors=COLORS,levels=LEVELS,linewidths=LWS,origin='lower')
 
                 #im = uimshow(data,extent=np.array([np.log10(self.Cs[0]),np.log10(self.Cs[-1]),self.Fs[goodinds][0],self.Fs[goodinds][-1]]),cmap=cm.inferno_r,ax=ax)
