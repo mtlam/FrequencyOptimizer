@@ -10,6 +10,7 @@ import DISS
 import glob
 import warnings
 import parallel
+from os import path
 
     
 
@@ -398,7 +399,7 @@ class FrequencyOptimizer:
         '''
         if len(glob.glob(filename))!=1:
             if directory is None:
-                directory = __file__.split("/")[0] + "/"
+                directory = path.join(path.dirname(__file__), '')
         else:
             directory = ""
         if type(Weffs) != np.ndarray:
