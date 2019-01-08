@@ -10,8 +10,9 @@ import DISS
 import glob
 import warnings
 import parallel
+import tsky
 
-    
+np.seterr(invalid="warn")
 
 
 
@@ -151,8 +152,10 @@ class PulsarNoise:
     '''
     Container class for all pulsar-related variables
     '''
-    def __init__(self,name,alpha=1.6,dtd=None,dnud=None,taud=None,C1=1.16,I_0=18.0,DM=0.0,D=1.0,Uscale=1.0,tauvar=None,Weffs=0.0,W50s=0.0,sigma_Js=0.0,P=None):
+    def __init__(self,name,alpha=1.6,dtd=None,dnud=None,taud=None,C1=1.16,I_0=18.0,DM=0.0,D=1.0,Uscale=1.0,tauvar=None,Weffs=0.0,W50s=0.0,sigma_Js=0.0,P=None,glon=None,glat=None):
         self.name = name
+        self.glon = glon
+        self.glat = glat
 
         if dtd is None:
             #Assume dtd is large?
@@ -248,7 +251,7 @@ class TelescopeNoise:
         else: return self.epsilon
     def get_T_const(self,nu):
         if self.interpolate: return np.interp(nu,self.rx_nu,self.T_const)
-        else: return self.T
+        else: return self.T_const
     
 
 
@@ -260,7 +263,7 @@ class FrequencyOptimizer:
     Primary class for frequency optimization
     '''
     
-    def __init__(self,psrnoise,galnoise,telnoise,numin=0.01,numax=10.0,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,vverbose=False,full_bandwidth=False,masks=None,levels=LEVELS,colors=COLORS,lws=LWS,full=True,ncpu=1):
+    def __init__(self,psrnoise,galnoise,telnoise,numin=0.01,numax=10.0,r=None,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,vverbose=False,full_bandwidth=False,masks=None,levels=LEVELS,colors=COLORS,lws=LWS,full=True,ncpu=1):
 
 
 
@@ -269,6 +272,8 @@ class FrequencyOptimizer:
         self.telnoise = telnoise
         self.log = log
         self.frac_bw = frac_bw
+        self.r = r
+
         
         self.numin = numin
         self.numax = numax
@@ -347,8 +352,13 @@ class FrequencyOptimizer:
             Weffs = np.zeros_like(nus)+Weffs
         B = self.get_bandwidths(nus)
        
-
-        Tsys = self.telnoise.get_T_const(nus) + 20 * np.power(nus/0.408,-1*self.galnoise.beta)
+        if self.psrnoise.glon is None or self.psrnoise.glat is None:
+            Tgal = 20*np.power(nus/0.408,-1*self.galnoise.beta)
+        else:            
+            Tgal = np.array([tsky.psr_tsky(self.psrnoise.glon,
+                                           self.psrnoise.glat,
+                                           nu*1e3) for nu in nus])
+        Tsys = self.telnoise.get_T_const(nus) + Tgal
 
         
         tau = 0.0
@@ -670,8 +680,10 @@ class FrequencyOptimizer:
                     print("Computing center freq %0.3f GHz (%i/%i)"%(C,ic,len(self.Cs)))
                 for ib,B in enumerate(self.Bs):
                     #print C,B
-                    if B > 1.9*C:
-                        self.sigmas[ic,ib] = np.nan
+                    #if B > 1.9*C:
+                    #if B > 2*C*(self.r - 1)/(self.r + 1):
+                    if self.r is not None and ((C+0.5*B)/(C-0.5*B) > self.r or B > 1.9*C or C - B/2.0 < self.numin):
+                        self.sigmas[ic,ib] =np.nan
                     else:
                         nulow = C - B/2.0
                         nuhigh = C + B/2.0
@@ -835,7 +847,7 @@ class FrequencyOptimizer:
 
 
                 
-                print self.Fs
+                print(self.Fs)
                 ax.set_xlabel(r"$\mathrm{Center~Frequency~\nu_0~(GHz)}$")
                 #ax.set_ylabel(r"$r~\mathrm{(\nu_{max}/\nu_{min})}$")
                 ax.set_ylabel(r"$\mathrm{Fractional~Bandwidth~(B/\nu_0)}$")
@@ -881,7 +893,15 @@ class FrequencyOptimizer:
         else:
             np.savez(filename,Cs=self.Cs,Fs=self.Fs,sigmas=self.sigmas)
 
+    def get_optimum(self):
+        checkdata = np.log10(self.sigmas)
+        flatdata = checkdata.flatten()
+        #inds = np.where(np.logical_not(np.isnan(flatdata)))[0]
+        inds = np.where((~np.isnan(flatdata))&~(np.isinf(flatdata)))[0]
+        MIN = np.min(flatdata[inds])
+        INDC,INDB = np.where(checkdata==MIN)
+        INDC,INDB = INDC[0],INDB[0]
+        MINB = self.Bs[INDB]
+        MINC = self.Cs[INDC]
 
-
-
-
+        return MINC,MINB
