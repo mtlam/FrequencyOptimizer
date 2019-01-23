@@ -1,0 +1,19 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module tsky ! in 
+    interface  ! in :tsky
+        function psr_tsky(l,b,freq) ! in :tsky:tsky.f
+            real intent(in) :: l
+            real intent(in) :: b
+            real intent(in) :: freq
+            real intent(out) :: psr_tsky
+        end function psr_tsky
+        subroutine glun(lun) ! in :tsky:tsky.f
+            integer :: lun
+        end subroutine glun
+    end interface 
+end python module tsky
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/
