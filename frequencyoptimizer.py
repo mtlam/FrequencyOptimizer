@@ -10,7 +10,10 @@ import DISS
 import glob
 import warnings
 import parallel
-import tsky
+import os
+
+__dir__ = os.path.dirname(os.path.abspath(__file__))
+
 
 np.seterr(invalid="warn")
 
@@ -144,7 +147,47 @@ def evalDMnuError(dnuiss,nu1,nu2,g=0.46,q=1.15,screen=False,fresnel=False):
     r = nu1/nu2
     return 0.184 * g * q * E_beta(r) * (phiF**2 / (nu1 * 1000))
 
+def readtskyfile():
+    """Read in tsky.ascii into a list from which temps can be retrieved."""
 
+    tskypath = os.path.join(__dir__, 'lookuptables/tsky.ascii')
+    tskylist = []
+    with open(tskypath) as f:
+        for line in f:
+            str_idx = 0
+            while str_idx < len(line):
+                # each temperature occupies space of 5 chars
+                temp_string = line[str_idx:str_idx+5]
+                try:
+                    tskylist.append(float(temp_string))
+                except:
+                    pass
+                str_idx += 5
+
+    return tskylist
+
+def tskypy(tskylist, gl, gb, freq):
+    """ Calculate tsky from Haslam table, scale to frequency in MHz."""
+    # ensure l is in range 0 -> 360
+    b = gb
+    if gl < 0.:
+        l = 360 + gl
+    else:
+        l = gl
+        
+    # convert from l and b to list indices
+    j = b + 90.5
+    if j > 179:
+        j = 179
+            
+    nl = l - 0.5
+    if l < 0.5:
+        nl = 359
+    i = float(nl) / 4.
+
+    tsky_haslam = tskylist[180*int(i) + int(j)]
+    # scale temperature before returning
+    return tsky_haslam * (freq/408.0)**(-2.6)
 
 
 
@@ -217,6 +260,7 @@ class GalacticNoise:
         self.beta = beta
         self.T_e = T_e
         self.fillingfactor = fillingfactor
+        self.tskylist = readtskyfile()
 
 
 class TelescopeNoise:
@@ -354,10 +398,11 @@ class FrequencyOptimizer:
        
         if self.psrnoise.glon is None or self.psrnoise.glat is None:
             Tgal = 20*np.power(nus/0.408,-1*self.galnoise.beta)
-        else:            
-            Tgal = np.array([tsky.psr_tsky(self.psrnoise.glon,
-                                           self.psrnoise.glat,
-                                           nu*1e3) for nu in nus])
+        else:
+            Tgal = np.array([tskypy(self.galnoise.tskylist,
+                                    self.psrnoise.glat,
+                                    self.psrnoise.glong,
+                                    nu*1e3) for nu in nus])
         Tsys = self.telnoise.get_T_const(nus) + Tgal
 
         
