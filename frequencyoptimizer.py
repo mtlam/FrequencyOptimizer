@@ -401,7 +401,7 @@ class FrequencyOptimizer:
         else:
             Tgal = np.array([tskypy(self.galnoise.tskylist,
                                     self.psrnoise.glat,
-                                    self.psrnoise.glong,
+                                    self.psrnoise.glon,
                                     nu*1e3) for nu in nus])
         Tsys = self.telnoise.get_T_const(nus) + Tgal
 
@@ -466,7 +466,7 @@ class FrequencyOptimizer:
         '''
         if len(glob.glob(filename))!=1:
             if directory is None:
-                directory = __file__.split("/")[0] + "/"
+                directory = os.path.join(os.path.dirname(__file__), '')
         else:
             directory = ""
         if type(Weffs) != np.ndarray:
