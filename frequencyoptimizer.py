@@ -376,13 +376,13 @@ class FrequencyOptimizer:
         
         return np.matrix(np.diag(sigmas**2))
         
-    def build_jitter_cov_matrix(self):
+    def build_jitter_cov_matrix(self,nus):
         '''
         Constructs the jitter error covariance matrix
         '''
         sigma_Js = self.psrnoise.sigma_Js
         if type(sigma_Js) != np.ndarray:
-            sigma_Js = np.zeros(self.nchan)+sigma_Js
+            sigma_Js = np.zeros(nus)+sigma_Js
 
         retval = np.matrix(np.zeros((len(sigma_Js),len(sigma_Js))))
         if sigma_Js is not None:
@@ -594,7 +594,7 @@ class FrequencyOptimizer:
         Calculate sigma_TOA given a selection of frequencies
         '''
         sncov = self.build_template_fitting_cov_matrix(nus)
-        jittercov = self.build_jitter_cov_matrix() #needs to have same length as nus!
+        jittercov = self.build_jitter_cov_matrix(nus) 
         disscov = self.build_scintillation_cov_matrix(nus) 
 
 
