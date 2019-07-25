@@ -631,8 +631,6 @@ class FrequencyOptimizer:
 
         
 
-
-        
     def build_polarization_cov_matrix(self,nus):
         '''
         Constructs the polarization error covariance matrix
@@ -657,7 +655,7 @@ class FrequencyOptimizer:
 
 
 
-    def calc_single(self,nus):
+    def calc_single(self,nus,retall=False):
         '''
         Calculate sigma_TOA given a selection of frequencies
         '''
@@ -665,10 +663,11 @@ class FrequencyOptimizer:
         jittercov = self.build_jitter_cov_matrix() #needs to have same length as nus!
         disscov = self.build_scintillation_cov_matrix(nus) 
 
-
         cov = sncov + jittercov + disscov
 
         sigma2 = epoch_averaged_error(cov,var=True)
+
+        sigmasn2 = epoch_averaged_error(sncov, var=True)
 
         if self.vverbose:
             with warnings.catch_warnings():
@@ -708,7 +707,9 @@ class FrequencyOptimizer:
         if self.psrnoise.P is not None and sigma > self.psrnoise.P:
             return self.psrnoise.P
 
-        return sigma
+            
+        return sigma, np.sqrt(sigma2), np.sqrt(sigmadm2), np.sqrt(sigmatel2),\
+            np.sqrt(sigmasn2)
 
 
     def calc(self):
@@ -737,8 +738,8 @@ class FrequencyOptimizer:
                             nus = np.linspace(nulow,nuhigh,self.nchan+1)[:-1] #more uniform sampling?
                         else:
                             nus = np.logspace(np.log10(nulow),np.log10(nuhigh),self.nchan+1)[:-1] #more uniform sampling?
-                        sigmas[ib] = self.calc_single(nus)
-                        #self.sigmas[ic,ib] = self.calc_single(nus)
+                        sigmas[ib] = self.calc_single(nus)[0]
+                        #self.sigmas[ic,ib] = self.calc_single(nus)[0]
                         #print self.sigmas[ic,ib]
                 return sigmas
 
@@ -762,8 +763,8 @@ class FrequencyOptimizer:
                         else:
                             nus = np.logspace(np.log10(nulow),np.log10(nuhigh),self.nchan+1)[:-1] #more uniform sampling?   
 
-                        #self.sigmas[ic,indf] = self.calc_single(nus)
-                        sigmas[indf] = self.calc_single(nus)
+                        #self.sigmas[ic,indf] = self.calc_single(nus)[0]
+                        sigmas[indf] = self.calc_single(nus)[0]
                 return sigmas
 
         if self.ncpu == 1:
@@ -844,11 +845,11 @@ class FrequencyOptimizer:
                     if self.log:
                         ax.plot(np.log10(x),np.log10(y),fmt,zorder=50,ms=8)
                         nus = np.logspace(np.log10(nulow),np.log10(nuhigh),self.nchan+1)[:-1] 
-                        sigma = np.log10(self.calc_single(nus))
+                        sigma = np.log10(self.calc_single(nus)[0])
                     else:
                         ax.plot(x,y,fmt,zorder=50,ms=8)
                         nus = np.linspace(nulow,nuhigh,self.nchan+1)[:-1] #more uniform sampling?
-                        sigma = np.log10(self.calc_single(nus))
+                        sigma = np.log10(self.calc_single(nus)[0])
                     with open("minima.txt",'a') as FILE:
                         FILE.write("%s point %f %f %f\n"%(self.psrnoise.name,x,y,sigma))
 
