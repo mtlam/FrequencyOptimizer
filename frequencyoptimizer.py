@@ -11,6 +11,9 @@ import glob
 import warnings
 import parallel
 import os
+import line_profiler
+
+profile = line_profiler.LineProfiler()
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
 
@@ -132,6 +135,7 @@ def E_beta(r,beta=11.0/3):
     r2 = r**2
     return np.abs(r2 / (r2-1)) * F_beta(r,beta)
 
+@profile
 def evalDMnuError(dnuiss,nu1,nu2,g=0.46,q=1.15,screen=False,fresnel=False):
     # nu2 should be less than nu1
     # nu in GHz, dnuiss in GHz
@@ -527,6 +531,7 @@ class FrequencyOptimizer:
 
 
     # Using notation from signal processing notes, lecture 17
+    @profile
     def DM_misestimation(self,nus,errs,covmat=False):#,fullDMnu=True):
         '''
         Return sum of DM mis-estimation errors
@@ -589,7 +594,7 @@ class FrequencyOptimizer:
         return retval
 
 
-
+    @profile
     def build_DMnu_cov_matrix(self,nus,g=0.46,q=1.15,screen=False,fresnel=False,nuref=1.0):
         '''
         Constructs the frequency-dependent DM error covariance matrix
@@ -656,7 +661,7 @@ class FrequencyOptimizer:
         return np.matrix(np.diag(sigmas**2))
 
 
-
+    @profile
     def calc_single(self,nus,retall=False):
         '''
         Calculate sigma_TOA given a selection of frequencies
@@ -696,6 +701,11 @@ class FrequencyOptimizer:
 
         sigma = np.sqrt(sigma2 + sigmadm2 + sigmatel2) #need to include PBF errors?
 
+        profile.runctx('self.build_DMnu_cov_matrix(nus)',
+                       globals(), locals())
+        #profile.add_function(fop_inst.DM_misestimation(nus,cov,covmat=True))
+
+        profile.print_stats()
 
         if self.vverbose:
             print("Telescope noise: %0.3f us"%np.sqrt(sigmatel2))
