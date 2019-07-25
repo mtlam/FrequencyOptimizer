@@ -1,0 +1,14 @@
+# values based on src B0518+165 and B0134+329 from 
+# http://www2.naic.edu/%7Ephil/sysperf/lbw/lbw_gtsb_Cur.pdf
+# and 
+# http://www2.naic.edu/~phil/sysperf/430/430_gtsb_Cur.pdf
+# Trx = Tsys - Tsky_src
+#
+#freq	Trx	G	eps 
+0.429	33.     10.0    0.01
+1.155	31.	7.0	0.01
+1.310	22.	7.0	0.01
+1.375	22.	7.0	0.01
+1.415	22.	7.0	0.01
+1.610	22.	7.0	0.01
+1.666	22.	7.0	0.01
