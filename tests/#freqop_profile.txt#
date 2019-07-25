@@ -1,0 +1,73 @@
+Timer unit: 1e-06 s
+
+Total time: 0.301979 s
+File: /users/tcohen/python/projects/FrequencyOptimizer/frequencyoptimizer.py
+Function: evalDMnuError at line 138
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   138                                           @profile
+   139                                           def evalDMnuError(dnuiss,nu1,nu2,g=0.46,q=1.15,screen=False,fresnel=False):
+   140                                               # nu2 should be less than nu1
+   141                                               # nu in GHz, dnuiss in GHz
+   142                                               # return value in microseconds
+   143                                               # Based on equation 25
+   144                                               # if fresnel==True, the first argument is phiF
+   145     19800      10834.0      0.5      3.6      if screen:
+   146                                                   g = 1
+   147     19800      15142.0      0.8      5.0      if fresnel:
+   148                                                   phiF = dnuiss
+   149                                               else:
+   150     19800      27145.0      1.4      9.0          phiF = 9.6 * ((nu1 / dnuiss)/100)**(5.0/12) #equation 15
+   151     19800      10107.0      0.5      3.3      r = nu1/nu2
+   152     19800     238751.0     12.1     79.1      return 0.184 * g * q * E_beta(r) * (phiF**2 / (nu1 * 1000))
+
+
+Total time: 0.551697 s
+File: /users/tcohen/python/projects/FrequencyOptimizer/frequencyoptimizer.py
+Function: build_DMnu_cov_matrix at line 594
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   594                                               @profile
+   595                                               def build_DMnu_cov_matrix(self,nus,g=0.46,q=1.15,screen=False,fresnel=False,nuref=1.0):
+   596                                                   '''
+   597                                                   Constructs the frequency-dependent DM error covariance matrix
+   598                                                   '''
+   599                                           
+   600         2         53.0     26.5      0.0          dnud = DISS.scale_dnu_d(self.psrnoise.dnud,nuref,nus)
+   601                                           
+   602                                           
+   603                                           
+   604                                                   # Construct the matrix, this could be sped up by a factor of two
+   605         2         84.0     42.0      0.0          retval = np.matrix(np.zeros((len(nus),len(nus))))
+   606       202         96.0      0.5      0.0          for i in range(len(nus)):
+   607     20200      10704.0      0.5      1.9              for j in range(len(nus)):
+   608                                           
+   609     20000      17354.0      0.9      3.1                  if nus[i] == nus[j]:
+   610       200         70.0      0.3      0.0                      continue # already set to zero
+   611                                                           
+   612                                                           # speed up
+   613                                                           #if retval[j,i] != 0.0:
+   614                                                           #    continue
+   615                                                           #    retval[i,j] = retval[j,i]
+   616                                                           #    continue
+   617                                                           
+   618                                                           #nu2 should be less than nu1
+   619     19800      14304.0      0.7      2.6                  if nus[i] > nus[j]: 
+   620      9900       5488.0      0.6      1.0                      nu1 = nus[i]
+   621      9900       5318.0      0.5      1.0                      nu2 = nus[j]
+   622      9900       5335.0      0.5      1.0                      dnuiss = dnud[i]
+   623                                                           else:
+   624      9900      11586.0      1.2      2.1                      nu1 = nus[j]
+   625      9900       5387.0      0.5      1.0                      nu2 = nus[i]
+   626      9900       5947.0      0.6      1.1                      dnuiss = dnud[j]
+   627                                                           #dnuiss = DISS.scale_dnu_d(self.psrnoise.dnud,nuref,nu1) #correct direction now, but should be nu1?
+   628                                                               
+   629     19800     443097.0     22.4     80.3                  sigma = evalDMnuError(dnuiss,nu1,nu2,g=g,q=q,screen=screen,fresnel=fresnel)
+   630                                           
+   631     19800      26872.0      1.4      4.9                  retval[i,j] = sigma**2
+   632                                                           #retval[j,i] = sigma**2
+   633                                                       #raise SystemExit
+   634         2          2.0      1.0      0.0          return retval
+
