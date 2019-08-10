@@ -199,6 +199,8 @@ class PulsarNoise:
         self.name = name
         self.glon = glon
         self.glat = glat
+        self.dnud = dnud
+        self.taud = taud
 
         if dtd is None:
             #Assume dtd is large?
