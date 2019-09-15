@@ -141,6 +141,7 @@ class Test_build_DMnu_covmat(ParametrizedTestCase):
         sigma = 0.184 * g * q * fop.E_beta(r) * (phiF**2 / (nu1 * 1000)) 
         return sigma 
 
+@unittest.skip("""Full keyword has been removed in current version. May return in later version.""")
 class Test_DM_misestimation(unittest.TestCase):
     ''' Make sure speedup doesn't break other uses of evalDMnuError'''
     

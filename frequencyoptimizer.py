@@ -133,7 +133,8 @@ def E_beta(r,beta=11.0/3):
     return np.abs(r2 / (r2-1)) * F_beta(r,beta)
 
 
-def evalDMnuError(dnuiss,nu1,nu2,g=0.46,q=1.15,screen=False,fresnel=False):
+def evalDMnuError(dnud,nus,g=0.46,q=1.15,screen=False,fresnel=False):
+    ''' Returns matrix of DMnu errors'''
     # nu2 should be less than nu1
     # nu in GHz, dnuiss in GHz
     # return value in microseconds
@@ -142,11 +143,15 @@ def evalDMnuError(dnuiss,nu1,nu2,g=0.46,q=1.15,screen=False,fresnel=False):
     if screen:
         g = 1
     if fresnel:
-        phiF = dnuiss
+        phiF = dnud
     else:
-        phiF = 9.6 * ((nu1 / dnuiss)/100)**(5.0/12) #equation 15
-    r = nu1/nu2
-    return 0.184 * g * q * E_beta(r) * (phiF**2 / (nu1 * 1000))
+        phiF = 9.6 * ((nus / dnud)/100)**(5.0/12) #equation 15
+    r = np.outer(1 / nus, nus)
+    np.fill_diagonal(r, 0)
+    sig_asym = 0.184 * g * q * E_beta(r) * (phiF**2 / (nus * 1000))
+    #nu2 should be < nu1 so lower triangle should = upper
+    sigma = np.triu(sig_asym) + np.triu(sig_asym).transpose()
+    return sigma
 
 def readtskyfile():
     """Read in tsky.ascii into a list from which temps can be retrieved."""
@@ -310,7 +315,7 @@ class FrequencyOptimizer:
     Primary class for frequency optimization
     '''
     
-    def __init__(self,psrnoise,galnoise,telnoise,numin=0.01,numax=10.0,r=None,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,vverbose=False,full_bandwidth=False,masks=None,levels=LEVELS,colors=COLORS,lws=LWS,full=True,ncpu=1):
+    def __init__(self,psrnoise,galnoise,telnoise,numin=0.01,numax=10.0,r=None,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,vverbose=False,full_bandwidth=False,masks=None,levels=LEVELS,colors=COLORS,lws=LWS,ncpu=1):
 
 
 
@@ -369,7 +374,6 @@ class FrequencyOptimizer:
         self.levels = levels
         self.colors = colors
         self.lws = lws
-        self.full = full
         self.ncpu = ncpu
 
     def template_fitting_error(self,S,Weff=100.0,Nphi=2048): #Weff in microseconds
@@ -555,17 +559,14 @@ class FrequencyOptimizer:
 
         ## Frequency-Dependent DM
         #DM_nu_var = evalDMnuError(self.psrnoise.dnud,np.max(nus),np.min(nus))**2 / 25.0
-        if self.full:
-            DM_nu_cov = self.build_DMnu_cov_matrix(nus)
-            DM_nu_var = epoch_averaged_error(DM_nu_cov,var=True)
-            #print nus
-            # FOO
-            #print DM_nu_cov
-            #print DM_nu_var
-            if DM_nu_var < 0.0:# or np.isnan(DM_nu_var): #no longer needed
-                DM_nu_var = 0 
-        else: # [deprecated], please be aware!
-            DM_nu_var = evalDMnuError(self.psrnoise.dnud,np.max(nus),np.min(nus))**2 / 25.0
+        DM_nu_cov = self.build_DMnu_cov_matrix(nus)
+        DM_nu_var = epoch_averaged_error(DM_nu_cov,var=True)
+        #print nus
+        # FOO
+        #print DM_nu_cov
+        #print DM_nu_var
+        if DM_nu_var < 0.0:# or np.isnan(DM_nu_var): #no longer needed
+            DM_nu_var = 0 
 
 
         
@@ -596,44 +597,9 @@ class FrequencyOptimizer:
         '''
         Constructs the frequency-dependent DM error covariance matrix
         '''
-
         dnud = DISS.scale_dnu_d(self.psrnoise.dnud,nuref,nus)
-
-
-
-        # Construct the matrix, this could be sped up by a factor of two
-        retval = np.matrix(np.zeros((len(nus),len(nus))))
-        for i in range(len(nus)):
-            for j in range(len(nus)):
-
-                if nus[i] == nus[j]:
-                    continue # already set to zero
-                
-                # speed up
-                #if retval[j,i] != 0.0:
-                #    continue
-                #    retval[i,j] = retval[j,i]
-                #    continue
-                
-                #nu2 should be less than nu1
-                if nus[i] > nus[j]: 
-                    nu1 = nus[i]
-                    nu2 = nus[j]
-                    dnuiss = dnud[i]
-                else:
-                    nu1 = nus[j]
-                    nu2 = nus[i]
-                    dnuiss = dnud[j]
-                #dnuiss = DISS.scale_dnu_d(self.psrnoise.dnud,nuref,nu1) #correct direction now, but should be nu1?
-                    
-                sigma = evalDMnuError(dnuiss,nu1,nu2,g=g,q=q,screen=screen,fresnel=fresnel)
-
-                retval[i,j] = sigma**2
-q                #retval[j,i] = sigma**2
-            #raise SystemExit
-        return retval
-
-        
+        sigma = evalDMnuError(dnud,nus,g=g,q=q,screen=screen,fresnel=fresnel)
+        return np.asmatrix(sigma**2)
 
     def build_polarization_cov_matrix(self,nus):
         '''
