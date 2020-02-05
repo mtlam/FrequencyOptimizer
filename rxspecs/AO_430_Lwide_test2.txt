@@ -1,0 +1,13 @@
+# Based on NANOGrav flux cals for B1442+101 
+# Artificially set gain low in channel between bands to make noise in that channel really high
+# This will ~correct total RMS but indiv/ components will still be wrong
+# This only works if nus array contains .44 and 1.5 as adjacent elements
+#freq	Trx	G	eps 
+.422	42.	10.	0.01
+.432	42.	10.	0.01
+.43999	42.	10.	0.01
+.44	42.	1e-5	0.01
+1.15	22.	1e-5	0.01
+1.15001	22.	7.5	0.01
+1.4	22.	7.5	0.01	
+1.73	22.	7.5	0.01
