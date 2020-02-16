@@ -1,0 +1,29 @@
+Timer unit: 1e-06 s
+
+Total time: 0.001934 s
+File: /users/tcohen/python/projects/FrequencyOptimizer/frequencyoptimizer.py
+Function: evalDMnuError at line 140
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   140                                           @profile
+   141                                           def evalDMnuError(dnud,nus,g=0.46,q=1.15,screen=False,fresnel=False):
+   142                                               ''' Returns matrix of DMnu errors'''
+   143                                               # nu2 should be less than nu1
+   144                                               # nu in GHz, dnuiss in GHz
+   145                                               # return value in microseconds
+   146                                               # Based on equation 25
+   147                                               # if fresnel==True, the first argument is phiF
+   148         1          2.0      2.0      0.1      if screen:
+   149                                                   g = 1
+   150         1          1.0      1.0      0.1      if fresnel:
+   151                                                   phiF = dnud
+   152                                               else:
+   153         1         13.0     13.0      0.7          phiF = 9.6 * ((nus / dnud)/100)**(5.0/12) #equation 15
+   154         1         60.0     60.0      3.1      r = np.outer(1 / nus, nus)
+   155         1         17.0     17.0      0.9      np.fill_diagonal(r, 0)
+   156         1       1725.0   1725.0     89.2      sig_asym = 0.184 * g * q * E_beta(r) * (phiF**2 / (nus * 1000))
+   157                                               #nu2 should be < nu1 so lower triangle should = upper
+   158         1        115.0    115.0      5.9      sigma = np.triu(sig_asym) + np.triu(sig_asym).transpose()
+   159         1          1.0      1.0      0.1      return sigma
+

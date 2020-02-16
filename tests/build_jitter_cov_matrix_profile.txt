@@ -1,0 +1,24 @@
+Timer unit: 1e-06 s
+
+Total time: 0.006911 s
+File: /users/tcohen/python/projects/FrequencyOptimizer/frequencyoptimizer.py
+Function: build_jitter_cov_matrix at line 458
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   458                                               @profile
+   459                                               def build_jitter_cov_matrix(self):
+   460                                                   '''
+   461                                                   Constructs the jitter error covariance matrix
+   462                                                   '''
+   463         1          2.0      2.0      0.0          sigma_Js = self.psrnoise.sigma_Js
+   464         1          1.0      1.0      0.0          if type(sigma_Js) != np.ndarray:
+   465         1          5.0      5.0      0.1              sigma_Js = np.zeros(self.nchan)+sigma_Js
+   466                                           
+   467         1         47.0     47.0      0.7          retval = np.matrix(np.zeros((len(sigma_Js),len(sigma_Js))))
+   468         1          0.0      0.0      0.0          if sigma_Js is not None:
+   469       101         19.0      0.2      0.3              for i in range(len(sigma_Js)):
+   470     10100       2312.0      0.2     33.5                  for j in range(len(sigma_Js)):
+   471     10000       4524.0      0.5     65.5                      retval[i,j] = sigma_Js[i] * sigma_Js[j]
+   472         1          1.0      1.0      0.0          return retval
+
