@@ -11,6 +11,11 @@ import glob
 import warnings
 import parallel
 import os
+import line_profiler
+import atexit
+
+profile = line_profiler.LineProfiler()
+atexit.register(profile.print_stats)
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
 
@@ -450,7 +455,7 @@ class FrequencyOptimizer:
                 sigmas[inds] = 0.0 #???
         
         return np.matrix(np.diag(sigmas**2))
-        
+
     def build_jitter_cov_matrix(self):
         '''
         Constructs the jitter error covariance matrix
@@ -466,7 +471,7 @@ class FrequencyOptimizer:
                     retval[i,j] = sigma_Js[i] * sigma_Js[j]
         return retval
 
-        
+
     def scattering_modifications(self,tauds,Weffs,filename="ampratios.npz",directory=None):
         '''
         Takes the calculations of the convolved Gaussian-exponential simulations and returns the multiplicative factor applies to the template-fitting errors
@@ -532,7 +537,6 @@ class FrequencyOptimizer:
 
 
     # Using notation from signal processing notes, lecture 17
-    
     def DM_misestimation(self,nus,errs,covmat=False):#,fullDMnu=True):
         '''
         Return sum of DM mis-estimation errors
@@ -592,7 +596,7 @@ class FrequencyOptimizer:
         return retval
 
 
-    
+
     def build_DMnu_cov_matrix(self,nus,g=0.46,q=1.15,screen=False,fresnel=False,nuref=1.0):
         '''
         Constructs the frequency-dependent DM error covariance matrix
@@ -623,8 +627,7 @@ class FrequencyOptimizer:
         sigmasprime = 2 * np.sqrt(eta) * pi_L #Actually use this
         return np.matrix(np.diag(sigmas**2))
 
-
-    
+    @profile
     def calc_single(self,nus,retall=False):
         '''
         Calculate sigma_TOA given a selection of frequencies
