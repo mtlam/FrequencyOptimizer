@@ -21,7 +21,7 @@ A class for describing pulsar noise parameters
 
 Usage: 
 
-    pn = PulsarNoise(name,alpha=1.6,dtd=None,dnud=None,taud=None,C1=1.16,I_0=18.0,DM=0.0,D=1.0,tauvar=None,Weffs=None,W50s=None,sigma_Js=None,P=None)
+    pn = PulsarNoise(name,alpha=1.6,dtd=None,dnud=None,taud=None,C1=1.16,I_0=18.0,DM=0.0,D=1.0,tauvar=None,Weffs=None,W50s=None,sigma_Js=0.0,P=None)
 
 * alpha: Pulsar flux spectral index
 * dtd: Scintillation timescale (s)
