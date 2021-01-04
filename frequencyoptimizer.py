@@ -11,6 +11,11 @@ import glob
 import warnings
 import parallel
 import os
+import line_profiler
+import atexit
+
+profile = line_profiler.LineProfiler()
+atexit.register(profile.print_stats)
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
 
@@ -450,23 +455,19 @@ class FrequencyOptimizer:
                 sigmas[inds] = 0.0 #???
         
         return np.matrix(np.diag(sigmas**2))
-        
-    def build_jitter_cov_matrix(self):
+
+    def build_jitter_cov_matrix(self, nus):
         '''
         Constructs the jitter error covariance matrix
         '''
         sigma_Js = self.psrnoise.sigma_Js
         if type(sigma_Js) != np.ndarray:
-            sigma_Js = np.zeros(self.nchan)+sigma_Js
+            sigma_Js = np.zeros(len(nus), dtype=nus.dtype) + sigma_Js
+        retval = np.matrix(np.outer(sigma_Js, sigma_Js))
 
-        retval = np.matrix(np.zeros((len(sigma_Js),len(sigma_Js))))
-        if sigma_Js is not None:
-            for i in range(len(sigma_Js)):
-                for j in range(len(sigma_Js)):
-                    retval[i,j] = sigma_Js[i] * sigma_Js[j]
         return retval
 
-        
+
     def scattering_modifications(self,tauds,Weffs,filename="ampratios.npz",directory=None):
         '''
         Takes the calculations of the convolved Gaussian-exponential simulations and returns the multiplicative factor applies to the template-fitting errors
@@ -532,7 +533,6 @@ class FrequencyOptimizer:
 
 
     # Using notation from signal processing notes, lecture 17
-    
     def DM_misestimation(self,nus,errs,covmat=False):#,fullDMnu=True):
         '''
         Return sum of DM mis-estimation errors
@@ -592,7 +592,7 @@ class FrequencyOptimizer:
         return retval
 
 
-    
+
     def build_DMnu_cov_matrix(self,nus,g=0.46,q=1.15,screen=False,fresnel=False,nuref=1.0):
         '''
         Constructs the frequency-dependent DM error covariance matrix
@@ -624,13 +624,12 @@ class FrequencyOptimizer:
         return np.matrix(np.diag(sigmas**2))
 
 
-    
     def calc_single(self,nus,retall=False):
         '''
         Calculate sigma_TOA given a selection of frequencies
         '''
         sncov = self.build_template_fitting_cov_matrix(nus)
-        jittercov = self.build_jitter_cov_matrix() #needs to have same length as nus!
+        jittercov = self.build_jitter_cov_matrix(nus) #needs to have same length as nus!
         disscov = self.build_scintillation_cov_matrix(nus) 
 
         cov = sncov + jittercov + disscov

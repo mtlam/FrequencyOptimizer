@@ -10,13 +10,16 @@ class ParametrizedTestCase(unittest.TestCase):
     """ TestCase classes that want to be parametrized should
         inherit from this class.
     """
-    def __init__(self, methodName='runTest', screen=None, fresnel=None):
+    def __init__(self, methodName='runTest', screen=None, fresnel=None,
+                 sigma_Js=0.0):
         super(ParametrizedTestCase, self).__init__(methodName)
         self.screen = screen
         self.fresnel = fresnel
+        self.sigma_Js = sigma_Js
 
     @staticmethod
-    def parametrize(testcase_klass, screen=None, fresnel=None):
+    def parametrize(testcase_klass, screen=None, fresnel=None,
+                    sigma_Js=0.0):
         """ Create a suite containing all tests taken from the given
             subclass, passing screen and fresnel.
         """
@@ -25,9 +28,90 @@ class ParametrizedTestCase(unittest.TestCase):
         suite = unittest.TestSuite()
         for name in testnames:
             suite.addTest(testcase_klass(name, screen=screen,
-                                         fresnel=fresnel))
+                                         fresnel=fresnel,
+                                         sigma_Js=sigma_Js))
         return suite
 
+class Test_build_jitter_covmat(ParametrizedTestCase):
+
+    def runTest(self):
+        pass
+
+    def setUp(self):
+        ''' Set up frequency optimizer instance '''
+        bw = 0.6 # GHz
+        n_channels = 100
+        ctrfreq = 1.4
+#        self.nus = np.array([1.1, 1.16, 1.4])
+#        ctrfreq = np.median(self.nus)
+        self.nus = np.linspace(ctrfreq - bw / 2, ctrfreq + bw / 2, n_channels + 1)[:-1]
+        self.psr_noise = fop.PulsarNoise('',
+                                        alpha=1.28,
+                                        dtd=0.048,
+                                        dnud=10.,
+                                        taud=6865638.25,
+                                        C1=1.16,
+                                        I_0=0.0309,
+                                        DM=770.89,
+                                        D=12.502,
+                                        tauvar=0.5 * 6865638.25,
+                                        Weffs=819.73,
+                                        W50s=171.95,
+                                        Uscale=44.56,
+                                        sigma_Js=self.sigma_Js,
+                                        glon=-0.7056,
+                                        glat=37.0666)
+        self.scope_noise = fop.TelescopeNoise(2.,
+                                              T_const=22.73,
+                                              T=1800,
+                                              epsilon=0.01)
+        self.gal_noise = fop.GalacticNoise()
+        self.fop_inst = fop.FrequencyOptimizer(self.psr_noise,
+                                               self.gal_noise,
+                                               self.scope_noise,
+                                               nchan=len(self.nus),
+                                               numax=ctrfreq,
+                                               numin=ctrfreq,
+                                               vverbose=False)
+
+    def test_new_jitter_covmatrix_matches_old(self):
+        print("sigma_Js = {}".format(self.psr_noise.sigma_Js))
+
+        # time computation of covmat using old method
+        start1 = timeit.default_timer()
+        for i in range(200):
+            old_covmat = self.build_jitter_cov_matrix_old()
+        stop1 = timeit.default_timer()
+        t1 = stop1 - start1
+
+        # time computation of covmat under development
+        start2 = timeit.default_timer()
+        for i in range(200):
+            new_covmat = self.fop_inst.build_jitter_cov_matrix(self.nus)
+        stop2 = timeit.default_timer()
+        t2 = stop2 - start2
+        
+        np.testing.assert_allclose(new_covmat, old_covmat,
+                                   rtol=1e-10)
+        self.assertIsInstance(new_covmat, np.matrix)
+        print("Refactor is faster by {}x".format(t1/t2))
+
+    def build_jitter_cov_matrix_old(self):
+        '''
+        Constructs the jitter error covariance matrix
+        '''
+        sigma_Js = self.psr_noise.sigma_Js
+        if type(sigma_Js) != np.ndarray:
+            sigma_Js = np.zeros(self.fop_inst.nchan)+sigma_Js
+
+        retval = np.matrix(np.zeros((len(sigma_Js),len(sigma_Js))))
+        if sigma_Js is not None:
+            for i in range(len(sigma_Js)):
+                for j in range(len(sigma_Js)):
+                    retval[i,j] = sigma_Js[i] * sigma_Js[j]
+        return retval
+
+    
 class Test_build_DMnu_covmat(ParametrizedTestCase):
 
     def runTest(self):
@@ -70,7 +154,7 @@ class Test_build_DMnu_covmat(ParametrizedTestCase):
                                                numin=ctrfreq,
                                                vverbose=False)
 
-    def test_new_covmatrix_matches_old(self):
+    def test_new_DMnu_covmatrix_matches_old(self):
         print("screen = {}, fresnel = {}".format(self.screen, self.fresnel))
 
         # time computation of covmat using old method
@@ -95,6 +179,7 @@ class Test_build_DMnu_covmat(ParametrizedTestCase):
         self.assertIsInstance(new_covmat, np.matrix)
         print("Refactor is faster by {}x".format(t1/t2))
 
+        
     def build_DMnu_cov_matrix_old(self, g=0.46, q=1.15,
                                   screen=False, fresnel=False, nuref=1.0):
         '''
@@ -186,7 +271,7 @@ class Test_DM_misestimation(unittest.TestCase):
                                                full=False,
                                                vverbose=False)
         sncov = self.fop_inst.build_template_fitting_cov_matrix(self.nus)
-        jittercov = jittercov = self.fop_inst.build_jitter_cov_matrix()
+        jittercov = jittercov = self.fop_inst.build_jitter_cov_matrix(self.nus)
         disscov = self.fop_inst.build_scintillation_cov_matrix(self.nus)
         self.cov = sncov + jittercov + disscov
 
@@ -196,6 +281,10 @@ class Test_DM_misestimation(unittest.TestCase):
 
 if __name__ == '__main__':
     suite = unittest.TestSuite()
+    sigmaJ_test = [0.0, 0.366, np.array([39.0, 35.3, 32.2, 29.5, 27.2, 25.3, 23.6])]
+    for sJ in sigmaJ_test:
+        suite.addTest(ParametrizedTestCase.parametrize(Test_build_jitter_covmat,
+                                                       sigma_Js=sJ))
     for screen, fresnel in product(*[(True, False)]*2):
         suite.addTest(ParametrizedTestCase.parametrize(Test_build_DMnu_covmat,
                                                        screen=screen,
