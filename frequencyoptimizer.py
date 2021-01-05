@@ -214,6 +214,7 @@ class PulsarNoise:
     I_0: Pulsar flux density at 1 GHz
     DM: Dispersion measure (pc cm^-3)
     D: Distance (kpc)
+    Uscale: Dimensionless factor that describes how intensity is distributed across pulse phase, see Sec. 2.2.1 of (Lam et al. 2018)
     tauvar: Variation in scattering timescale (us)
     Weffs: Effective width, can be an array (us)
     W50s: Pulse full-width at half-maximum, can be an array (us)
