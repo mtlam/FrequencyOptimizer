@@ -62,7 +62,7 @@ class Test_build_jitter_covmat(ParametrizedTestCase):
                                         glon=-0.7056,
                                         glat=37.0666)
         self.scope_noise = fop.TelescopeNoise(2.,
-                                              T_const=22.73,
+                                              T_rx=22.73,
                                               T=1800,
                                               epsilon=0.01)
         self.gal_noise = fop.GalacticNoise()
@@ -142,7 +142,7 @@ class Test_build_DMnu_covmat(ParametrizedTestCase):
                                          glon=-0.7056,
                                          glat=37.0666)
         self.scope_noise = fop.TelescopeNoise(2.,
-                                              T_const=22.73,
+                                              T_rx=22.73,
                                               T=1800,
                                               epsilon=0.01)
         self.gal_noise = fop.GalacticNoise()
@@ -258,7 +258,7 @@ class Test_DM_misestimation(unittest.TestCase):
                                          glon=-0.7056,
                                          glat=37.0666)
         self.scope_noise = fop.TelescopeNoise(2.,
-                                              T_const=22.73,
+                                              T_rx=22.73,
                                               T=1800,
                                               epsilon=0.01)
         self.gal_noise = fop.GalacticNoise()
