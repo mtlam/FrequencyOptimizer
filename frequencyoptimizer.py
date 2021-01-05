@@ -661,7 +661,7 @@ class FrequencyOptimizer:
         sigmadm2 = self.DM_misestimation(nus,cov,covmat=True)**2
 
 
-        sigma = np.sqrt(sigma2 + sigmadm2 + sigmatel2) #need to include PBF errors?
+        sigma = np.sqrt(sigmadm2 + sigmatel2) #need to include PBF errors?
 
         if self.vverbose:
             print("Telescope noise: %0.3f us"%np.sqrt(sigmatel2))
