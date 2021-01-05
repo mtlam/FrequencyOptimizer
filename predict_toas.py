@@ -9,7 +9,6 @@ from frequencyoptimizer import FrequencyOptimizer
 NCHAN = 16
 NSTEPS = 16
 
-Tcmb = 3.0
 
 usage = """%(prog)s [options]
 
@@ -141,7 +140,7 @@ else:
         "scat_ts_var": args.scat_ts_var,
         "diss_ts": args.diss_ts }}
 sigmas = []
-telescope_noise = TelescopeNoise(gain=gain,T_const=Trx+Tcmb,epsilon=epsilon,
+telescope_noise = TelescopeNoise(gain=gain,T_rx=Trx,epsilon=epsilon,
                                  T=args.tobs,rx_nu=rx_freq,
                                  interpolate=interpolate)
 galactic_noise = GalacticNoise()

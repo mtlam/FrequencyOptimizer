@@ -205,6 +205,21 @@ def tskypy(tskylist, gl, gb, freq):
 class PulsarNoise:
     '''
     Container class for all pulsar-related variables
+
+    alpha: Pulsar flux spectral index
+    dtd: Scintillation timescale (s)
+    dnud: Scintillation bandwidth (GHz)
+    taud: Scattering timescale (us)
+    C1: Coefficient relating dnud to taud (1.16 = uniform Kolmogorov medium) 
+    I_0: Pulsar flux density at 1 GHz
+    DM: Dispersion measure (pc cm^-3)
+    D: Distance (kpc)
+    tauvar: Variation in scattering timescale (us)
+    Weffs: Effective width, can be an array (us)
+    W50s: Pulse full-width at half-maximum, can be an array (us)
+    sigma_Js: Jitter for observation time T, can be an array (us) [note: T needs to be related to the TelescopeNoise class]
+    glon: Galactic longitude (deg)
+    glat: galactic latitude (deg)
     '''
     def __init__(self,name,alpha=1.6,dtd=None,dnud=None,taud=None,C1=1.16,I_0=18.0,DM=0.0,D=1.0,Uscale=1.0,tauvar=None,Weffs=0.0,W50s=0.0,sigma_Js=0.0,P=None,glon=None,glat=None):
         self.name = name
@@ -280,17 +295,24 @@ class TelescopeNoise:
     '''
     Container class for all Telescope-related variables.
 
-    gain (K/Jy): Telescope gain
-    T_const (K): System temperature plus other constant temperatures
-    epsilon: Polarization fractional gain error (\delta g/g)
+    gain: Telescope gain (K/Jy)
+          if array must be same length as rx_nu 
+    T_rx: Receiver temperature (K) (i.e. T_sys - T_gal - T_CMB)
+          if array must be same length as rx_nu 
+    epsilon: Fractional gain error
+          if array must be same length as rx_nu
     pi_V: Degree of circular polarization
     eta: Voltage cross-coupling coefficient
     pi_L: Degree of linear polarization
-    T (s): Integration time 
+    T: Integration time (s)
+    Npol: Number of polarization states
+    rx_nu: Receiver frequencies over which to interpolate (GHz)
+    interpolate: (boolean) must be set to True to interpolate gain, T_rx, and/or eps over rx_nu
+
     '''
-    def __init__(self,gain,T_const,epsilon=0.08,pi_V=0.1,eta=0.0,pi_L=0.0,T=1800.0,Npol=2,rx_nu=None,interpolate=False):
+    def __init__(self,gain,T_rx,epsilon=0.08,pi_V=0.1,eta=0.0,pi_L=0.0,T=1800.0,Npol=2,rx_nu=None,interpolate=False):
         self.gain = gain
-        self.T_const = T_const
+        self.T_rx = T_rx
         self.epsilon = epsilon
         self.pi_V = pi_V
         self.eta = eta
@@ -306,9 +328,9 @@ class TelescopeNoise:
     def get_epsilon(self,nu):
         if self.interpolate: return np.interp(nu,self.rx_nu,self.epsilon)
         else: return self.epsilon
-    def get_T_const(self,nu):
-        if self.interpolate: return np.interp(nu,self.rx_nu,self.T_const)
-        else: return self.T_const
+    def get_T_rx(self,nu):
+        if self.interpolate: return np.interp(nu,self.rx_nu,self.T_rx)
+        else: return self.T_rx
     
 
 
@@ -318,6 +340,22 @@ class TelescopeNoise:
 class FrequencyOptimizer:
     '''
     Primary class for frequency optimization
+
+    psrnoise: Pulsar Noise object
+    galnoise: Galaxy Noise object
+    telnoise: Telescope Noise object
+    numin: Lowest frequency to run (GHz)
+    numax: Highest frequency to run (GHz)
+    nsteps: Number of steps in the grid to run
+    nchan: number of underlying frequency channels
+    log: Run in log space
+    frac_bw: Run in fractional bandwidth
+    full_bandiwdth: enforce full bandwidth in calculations
+    masks: mask frequencies [not fully implemented]
+    levels: contour levels
+    colors: contour colors
+    lws: contour linewidths
+    ncpu: number of cores for multiprocess threading
     '''
     
     def __init__(self,psrnoise,galnoise,telnoise,numin=0.01,numax=10.0,r=None,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,vverbose=False,full_bandwidth=False,masks=None,levels=LEVELS,colors=COLORS,lws=LWS,ncpu=1):
@@ -415,7 +453,7 @@ class FrequencyOptimizer:
                                     self.psrnoise.glat,
                                     self.psrnoise.glon,
                                     nu*1e3) for nu in nus])
-        Tsys = self.telnoise.get_T_const(nus) + Tgal
+        Tsys = self.telnoise.get_T_rx(nus) + Tgal + 2.73
 
         
         tau = 0.0
@@ -747,6 +785,13 @@ class FrequencyOptimizer:
     def plot(self,filename="triplot.png",doshow=True,figsize=(8,6),save=True,minimum=None,points=None,colorbararrow=None):
         '''
         Create the triangle plots as in the optimal frequencies paper.
+
+        filename: filename
+        doshow: show the plot
+        figsize = figure size
+        save: Save the figure
+        minimum: Symbol to place over the minimum
+        points: Place other points on the plot
         '''
         fig = figure(figsize=figsize)
         ax = fig.add_subplot(111)
