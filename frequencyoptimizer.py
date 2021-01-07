@@ -332,8 +332,9 @@ class TelescopeNoise:
     def get_T_rx(self,nu):
         if self.interpolate: return np.interp(nu,self.rx_nu,self.T_rx)
         else: return self.T_rx
-    
-
+    def get_T(self,nu):
+        if self.interpolate: return np.interp(nu,self.rx_nu,self.T)
+        else: return self.T
 
 
 
@@ -461,7 +462,7 @@ class FrequencyOptimizer:
         if self.psrnoise.DM != 0.0 and self.psrnoise.D != 0.0 and self.galnoise.T_e != 0.0 and self.galnoise.fillingfactor != 0:
             tau = 1.417e-6 * (self.galnoise.fillingfactor/0.2)**-1 * self.psrnoise.DM**2 * self.psrnoise.D**-1 * np.power(self.galnoise.T_e/100,-1.35)
 
-        numer =  (self.psrnoise.I_0 * 1e-3) * np.power(nus/nuref,-1*self.psrnoise.alpha)*np.sqrt(self.telnoise.Npol*B*1e9*self.telnoise.T) 
+        numer =  (self.psrnoise.I_0 * 1e-3) * np.power(nus/nuref,-1*self.psrnoise.alpha)*np.sqrt(self.telnoise.Npol*B*1e9*self.telnoise.get_T(nus)) 
         #* np.exp(-1*tau*np.power(nus/nuref,-2.1)) #
 
         denom = Tsys / self.telnoise.get_gain(nus)
@@ -471,7 +472,7 @@ class FrequencyOptimizer:
         #print numer,denom
 
         #print nus,B
-        #print self.psrnoise.I_0,self.telnoise.gain,B,self.telnoise.T#np.power(nus/nuref,-1*self.psrnoise.alpha)
+        #print self.psrnoise.I_0,self.telnoise.gain,B,self.telnoise.get_T(nus)#np.power(nus/nuref,-1*self.psrnoise.alpha)
         
         sigmas = self.template_fitting_error(S,Weffs,1)
 
@@ -553,7 +554,7 @@ class FrequencyOptimizer:
         dnud = DISS.scale_dnu_d(self.psrnoise.dnud,nuref,nus)
         taud = DISS.scale_tau_d(self.psrnoise.taud,nuref,nus)
 
-        niss = (1 + etanu* B/dnud) * (1 + etat* self.telnoise.T/dtd) 
+        niss = (1 + etanu* B/dnud) * (1 + etat* self.telnoise.get_T(nus)/dtd) 
 
         # check if niss >> 1?
         sigmas = taud/np.sqrt(niss)
