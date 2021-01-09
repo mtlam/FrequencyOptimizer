@@ -1,0 +1,12 @@
+# Hacky CHIME F-Engine + GBT Rcvr_1_2
+# CHIME Gains multiplied by sqrt(.7) to account for BW loss to RFI
+# Integration times (s) for pulsar with dec=0
+#freq	Trx	G	eps	t_int
+.400	30.	0.97	0.01	1.80e3
+0.791	30.	0.97	0.01	900.
+0.792	30.	1e-5	0.01	1e-6
+1.11	18.	1e-5	0.01	1e-6
+1.12	25.	2.	0.01	5.184e6
+1.35	16.	2.	0.01	5.184e6
+1.75	16.	2.	0.01	5.184e6
+1.91	25.	2.	0.01	5.184e6
