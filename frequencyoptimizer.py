@@ -23,7 +23,6 @@ __dir__ = os.path.dirname(os.path.abspath(__file__))
 np.seterr(invalid="warn")
 
 
-
 rc('text',usetex=True)
 rc('font',**{'family':'serif','serif':['Times New Roman'],'size':14})#,'weight':'bold'})
 rc('xtick',**{'labelsize':16})
@@ -106,6 +105,8 @@ COLORS = ['k','0.25','0.5','0.75','1.0']
 LWS = [2.5,2,1.5,1,0.5]
 LWS = [2.5,2.25,2,1.75,1.5]
 #LWS = [2.5,2.25,2.0,1.75,1.5,1.25]
+
+RXFILE_HEADER_FMT = "#Freq  Trx  G  Eps  t_int(optional)"
 
 def epoch_averaged_error(C,var=False):
     # Stripped down version from rednoisemodel.py from the excess noise project
@@ -292,6 +293,9 @@ class GalacticNoise:
         self.tskylist = readtskyfile()
 
 
+class RcvrFileParseError(Exception):
+    pass
+
 class TelescopeNoise:
     '''
     Container class for all Telescope-related variables.
@@ -306,12 +310,17 @@ class TelescopeNoise:
     eta: Voltage cross-coupling coefficient
     pi_L: Degree of linear polarization
     T: Integration time (s)
+          if array must be same length as rx_nu
     Npol: Number of polarization states
     rx_nu: Receiver frequencies over which to interpolate (GHz)
     interpolate: (boolean) must be set to True to interpolate gain, T_rx, and/or eps over rx_nu
+    rxspecfile: (string) Name of receiver specifications file saved in the rxspecs/ directory and containing a header with the format
 
+    #Freq  Trx  G  Eps  t_int(optional)
+
+    immediately followed by 4 or 5 tab-separated columns of frequency, T_rx, gain, epsilon, and (optionally) T. If the receiver specifications file does not contain a 't_int' column (i.e. 'T' is not a function of frequency), 'T' must be a single value of type int or float.
     '''
-    def __init__(self,gain,T_rx,epsilon=0.08,pi_V=0.1,eta=0.0,pi_L=0.0,T=1800.0,Npol=2,rx_nu=None,interpolate=False):
+    def __init__(self,gain,T_rx,epsilon=0.08,pi_V=0.1,eta=0.0,pi_L=0.0,T=1800.0,Npol=2,rx_nu=None,interpolate=False,rxspecfile=None):
         self.gain = gain
         self.T_rx = T_rx
         self.epsilon = epsilon
@@ -322,7 +331,8 @@ class TelescopeNoise:
         self.Npol = Npol
         self.rx_nu = rx_nu
         self.interpolate = interpolate
-
+        self.rxspecfile = rxspecfile
+        
     def get_gain(self,nu):
         if self.interpolate: return np.interp(nu,self.rx_nu,self.gain)
         else: return self.gain
@@ -335,8 +345,59 @@ class TelescopeNoise:
     def get_T(self,nu):
         if self.interpolate: return np.interp(nu,self.rx_nu,self.T)
         else: return self.T
-
-
+    def get_rxspecs(self, tint_in):
+        with open(os.path.join(__dir__, 'rxspecs', self.rxspecfile), 'r') as rxf:
+            rx_nus = []
+            trxs = []
+            gains = []
+            eps = []
+            t_ints = []
+            header_requires = ['freq', 'trx', 'g', 'eps']
+            is_header = lambda l : l.startswith('#') and l.strip("#").lower().split()[:4] == header_requires
+            # read file
+            for line in rxf:
+                if is_header(line): # find header
+                    header = line
+                    for line in rxf: # read data (lines after header)
+                        if not line.strip(): # ignore blanks
+                            continue
+                        lsp = line.split()
+                        try:
+                            rx_nus.append(float(lsp[0]))
+                            trxs.append(float(lsp[1]))
+                            gains.append(float(lsp[2]))
+                            eps.append(float(lsp[3]))
+                        except IndexError:
+                            raise RcvrFileParseError("Receiver specifications file "
+                                                     "must have 4 or 5 "
+                                                     "columns of even length. "
+                                                     "Format is\n" + RXFILE_HEADER_FMT)
+                        try:
+                            t_ints.append(float(lsp[4]))
+                        except IndexError:
+                            pass
+                else:
+                    header = None
+            if header is None:
+                raise RcvrFileParseError("Receiver specifications file "
+                                         "has no header. Format is\n" +
+                                         RXFILE_HEADER_FMT)
+            # if no t_int column
+            if len(t_ints) == 0:
+                if not isinstance(tint_in, (int, float)):
+                    raise TypeError("If receiver specifications file "
+                                    "does not contain a "
+                                    "'t_int' column, 'T' must be of type "
+                                    "int or float, "
+                                    "not {}".format(type(tint_in)))
+                else:
+                    t_ints = np.full(len(rx_nus), tint_in)
+        # if not all([len(l) == len(rx_nus) for l in [trxs, gains, eps, t_ints]]):
+        #     # might be redundant
+        #     raise RcvrFileParseError("Columns in receiver specifications file are "
+        #                              "of uneven length.")
+        return (np.array(rx_nus), np.array(trxs), np.array(gains), np.array(eps),
+                np.array(t_ints))
 
 
 class FrequencyOptimizer:

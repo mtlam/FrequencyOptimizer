@@ -66,7 +66,7 @@ Usage:
        
     tn = TelescopeNoise(gain,T_rx,epsilon=0.08,pi_V=0.1,eta=0.0,pi_L=0.0,T=1800.0,Npol=2,rx_nu=None,interpolate=False)
 
-* gain: Telescope gain (K/Jy), if array must be same length as rx_nu 
+* gain: Telescope gain (K/Jy) if array must be same length as rx_nu 
 * T_rx: Receiver temperature (K) (i.e. T_sys - T_gal - T_CMB), if array must be same length as rx_nu 
 * epsilon: Fractional gain error, if array must be same length as rx_nu
 * pi_V: Degree of circular polarization
@@ -76,7 +76,11 @@ Usage:
 * Npol: Number of polarization states
 * rx_nu: Receiver frequencies over which to interpolate (GHz)
 * interpolate: (boolean) must be set to True to interpolate gain, T_rx, and/or eps
+* rxspecfile: (string) If defined, overrides gain, T_rx, epsilon and (optionally) T. Name of receiver specifications file saved in the rxspecs/ directory and containing a header with the format
 
+    #Freq  Trx  G  Eps  t_int(optional)
+
+    immediately followed by 4 or 5 tab-separated columns of frequency, T_rx, gain, epsilon, and (optionally) T. If the receiver specifications file does not contain a 't_int' column (i.e. 'T' is not a function of frequency), 'T' must be a single value of type int or float.
 
 FrequencyOptimizer
 ------------------
