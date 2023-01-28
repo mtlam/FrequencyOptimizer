@@ -300,53 +300,145 @@ class TelescopeNoise:
     '''
     Container class for all Telescope-related variables.
 
-    gain: Telescope gain (K/Jy)
-          if array must be same length as rx_nu 
-    T_rx: Receiver temperature (K) (i.e. T_sys - T_gal - T_CMB)
-          if array must be same length as rx_nu 
-    epsilon: Fractional gain error
-          if array must be same length as rx_nu
-    pi_V: Degree of circular polarization
-    eta: Voltage cross-coupling coefficient
-    pi_L: Degree of linear polarization
-    T: Integration time (s)
-          if array must be same length as rx_nu
-    Npol: Number of polarization states
-    rx_nu: Receiver frequencies over which to interpolate (GHz)
-    interpolate: (boolean) must be set to True to interpolate gain, T_rx, and/or eps over rx_nu
-    rxspecfile: (string) Name of receiver specifications file saved in the rxspecs/ directory and containing a header with the format
+    gain : float or numpy.ndarray
+           Telescope gain (K/Jy) 
+           If array must be same length as rx_nu 
+    T_rx : float or numpy.ndarray
+           Receiver temperature (K) (i.e. T_sys - T_gal - T_CMB)
+           If array must be same length as rx_nu 
+    epsilon : float or numpy.ndarray (optional)
+              Fractional gain error
+              If array must be same length as rx_nu
+    pi_V : float (optional) 
+           Degree of circular polarization
+    eta : float (optional)
+          Voltage cross-coupling coefficient
+    pi_L : float (optional)
+           Degree of linear polarization
+    T : float or numpy.ndarray (optional)
+        Integration time (s)
+        If array must be same length as rx_nu
+    Npol : int or float (optional)
+           Number of polarization states
+    rx_nu : None or numpy.ndarray (optional)
+            Receiver frequencies over which to interpolate (GHz)
+    rxspecfile : string (optional)
+                 If defined, overrides gain, T_rx, epsilon and (optionally) T. Name of receiver specifications file saved in the rxspecs/ directory and containing a header with the format
 
-    #Freq  Trx  G  Eps  t_int(optional)
+                #Freq  Trx  G  Eps  t_int(optional)
 
-    immediately followed by 4 or 5 tab-separated columns of frequency, T_rx, gain, epsilon, and (optionally) T. If the receiver specifications file does not contain a 't_int' column (i.e. 'T' is not a function of frequency), 'T' must be a single value of type int or float.
+                immediately followed by 4 or 5 tab-separated columns of frequency, T_rx, gain, epsilon, and (optionally) T. If the receiver specifications file does not contain a 't_int' column (i.e. 'T' is not a function of frequency), 'T' must be a single value of type int or float.
     '''
-    def __init__(self,gain,T_rx,epsilon=0.08,pi_V=0.1,eta=0.0,pi_L=0.0,T=1800.0,Npol=2,rx_nu=None,interpolate=False,rxspecfile=None):
-        self.gain = gain
-        self.T_rx = T_rx
-        self.epsilon = epsilon
+    def __init__(self,gain,T_rx,epsilon=0.08,pi_V=0.1,eta=0.0,pi_L=0.0,T=1800.0,Npol=2,rx_nu=None,rxspecfile=None):
+
+        if not isinstance(gain, (float, np.ndarray)):
+            raise TypeError("Invalid 'gain' type {}. Valid types are float "
+                            "or numpy.ndarray.".format(type(gain)))
+        if isinstance(gain, np.ndarray):
+            try:
+                if len(gain) != len(rx_nu):
+                    raise ValueError("'gain' and 'rx_nu' must be "
+                                     "the same length.")
+            except TypeError:
+                raise TypeError("if 'gain' is type numpy.ndarray, "
+                                "rx_nus must also be numpy.ndarray of same length")
+        if not isinstance(T_rx, (float, np.ndarray)):
+            raise TypeError("Invalid 'T_rx' type {}. Valid types are float "
+                            "or numpy.ndarray.".format(type(T_rx)))
+        if isinstance(T_rx, np.ndarray):
+            try:
+                if len(T_rx) != len(rx_nu):
+                    raise ValueError("'T_rx' and 'rx_nu' must be "
+                                     "the same length.")
+            except TypeError:
+                raise TypeError("if 'T_rx' is type numpy.ndarray, "
+                                "rx_nus must also be numpy.ndarray of same length")
+        if not isinstance(epsilon, (float, np.ndarray)):
+            raise TypeError("Invalid 'epsilon' type {}. Valid types are float "
+                            "or numpy.ndarray.".format(type(epsilon)))
+        if isinstance(epsilon, np.ndarray):
+            try:
+                if len(epsilon) != len(rx_nu):
+                    raise ValueError("'epsilon' and 'rx_nu' must be "
+                                     "the same length.")
+            except TypeError:
+                raise TypeError("if 'epsilon' is type numpy.ndarray, "
+                                "rx_nus must also be numpy.ndarray of same length")
+        if not isinstance(pi_V, float):
+            raise TypeError("Invalid 'pi_V' type {}. Valid types are "
+                            "float.".format(type(pi_V)))
+        if not isinstance(eta, float):
+            raise TypeError("Invalid 'eta' type {}. Valid types are "
+                            "float.".format(type(eta)))
+        if not isinstance(pi_L, float):
+            raise TypeError("Invalid 'pi_L' type {}. Valid types are "
+                            "float.".format(type(pi_L)))
+        if not isinstance(T, (float, np.ndarray)):
+            raise TypeError("Invalid 'T' type {}. Valid types are float "
+                            "or numpy.ndarray.".format(type(T)))
+        if isinstance(T, np.ndarray):
+            try:
+                if len(T) != len(rx_nu):
+                    raise ValueError("'T' and 'rx_nu' must be "
+                                     "the same length.")
+            except TypeError:
+                raise TypeError("if 'T' is type numpy.ndarray, "
+                                "rx_nus must also be numpy.ndarray of same length")
+        if not isinstance(Npol, (int, float)):
+            raise TypeError("Invalid 'Npol' type {}. Valid types are int or "
+                            "float.".format(type(Npol)))
+        if not isinstance(rx_nu, (type(None), np.ndarray)):
+            raise TypeError("Invalid 'rx_nu' type {}. Valid types are None or "
+                            "numpy.ndarray.".format(type(rx_nu)))
+        if isinstance(rx_nu, np.ndarray) and not any([isinstance(k, np.ndarray)\
+                                                      for k in [gain,
+                                                                T_rx,
+                                                                epsilon,
+                                                                T]]):
+            warnings.warn("rx_nu is type numpy.ndarray but other "
+                          "frequency-dependent parameters are not. "
+                          "Ignoring rx_nu and not interpolating.")
+        if not isinstance(rxspecfile, (type(None), str)):
+            raise TypeError("Invalid 'rxspecfile' type {}. Valid types are None "
+                            "or str.".format(type(rxspecfile)))
+            
+        self.rxspecfile = rxspecfile # should do a check for path exists here
+        if self.rxspecfile is not None:
+            self.rxf_path = os.path.join(__dir__, 'rxspecs', self.rxspecfile)
+            self.rx_nu, self.T_rx, self.gain, self.epsilon, self.T = self.get_rxspecs(T)
+        else:
+            self.rx_nu = rx_nu
+            self.T_rx = T_rx
+            self.gain = gain
+            self.epsilon = epsilon
+            self.T = T
         self.pi_V = pi_V
         self.eta = eta
         self.pi_L = pi_L
-        self.T = T
         self.Npol = Npol
-        self.rx_nu = rx_nu
-        self.interpolate = interpolate
-        self.rxspecfile = rxspecfile
-        
+                
     def get_gain(self,nu):
-        if self.interpolate: return np.interp(nu,self.rx_nu,self.gain)
-        else: return self.gain
+        if isinstance(self.gain, np.ndarray):
+            return np.interp(nu,self.rx_nu,self.gain)
+        else:
+            return self.gain
     def get_epsilon(self,nu):
-        if self.interpolate: return np.interp(nu,self.rx_nu,self.epsilon)
-        else: return self.epsilon
+        if isinstance(self.epsilon, np.ndarray):
+            return np.interp(nu,self.rx_nu,self.epsilon)
+        else:
+            return self.epsilon
     def get_T_rx(self,nu):
-        if self.interpolate: return np.interp(nu,self.rx_nu,self.T_rx)
-        else: return self.T_rx
+        if isinstance(self.T_rx, np.ndarray):
+            return np.interp(nu,self.rx_nu,self.T_rx)
+        else:
+            return self.T_rx
     def get_T(self,nu):
-        if self.interpolate: return np.interp(nu,self.rx_nu,self.T)
-        else: return self.T
+        if isinstance(self.T, np.ndarray):
+            return np.interp(nu,self.rx_nu,self.T)
+        else:
+            return self.T
     def get_rxspecs(self, tint_in):
-        with open(os.path.join(__dir__, 'rxspecs', self.rxspecfile), 'r') as rxf:
+        with open(self.rxf_path, 'r') as rxf:
             rx_nus = []
             trxs = []
             gains = []
@@ -380,7 +472,8 @@ class TelescopeNoise:
                     header = None
             if header is None:
                 raise RcvrFileParseError("Receiver specifications file "
-                                         "has no header. Format is\n" +
+                                         "has missing or invalid header. "
+                                         "Format is\n" +
                                          RXFILE_HEADER_FMT)
             # if no t_int column
             if len(t_ints) == 0:
@@ -730,6 +823,7 @@ class FrequencyOptimizer:
         Calculate sigma_TOA given a selection of frequencies
         '''
         sncov = self.build_template_fitting_cov_matrix(nus)
+        
         jittercov = self.build_jitter_cov_matrix(nus) #needs to have same length as nus!
         disscov = self.build_scintillation_cov_matrix(nus) 
 

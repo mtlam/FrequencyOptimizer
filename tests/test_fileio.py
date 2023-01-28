@@ -33,7 +33,8 @@ class Test_get_rxspecs_missing_value(ParametrizedTestCase):
     Test whether an RcvrFileParseError is raised when a column is missing a value
     """
     def setUp(self):
-        self.scope_noise = TelescopeNoise(1., 1., rxspecfile='')
+        self.scope_noise = TelescopeNoise(1., 1.)
+        self.scope_noise.rxf_path = ''
 
     def test_missing_values_in_rxspec_file_raises_RcvrFileParseError(self):
         print("file_content =\n{}".format(self.file_content))
@@ -49,7 +50,8 @@ class Test_get_rxspecs_blank_line(unittest.TestCase):
     Test that get_rxspecs skips blank line in file without halting execution
     """
     def setUp(self):
-        self.scope_noise = TelescopeNoise(1., 1., rxspecfile='')
+        self.scope_noise = TelescopeNoise(1., 1.)
+        self.scope_noise.rxf_path = ''
         self.file_content = ("# Header metadata\n" 
                              "#freq	Trx	G	eps     t_int\n"
                              ".422	42.	10.	0.01    1.\n"
@@ -76,7 +78,8 @@ class Test_get_rxspecs_t_int_is_array(unittest.TestCase):
     and tint_in is an array
     """
     def setUp(self):
-        self.scope_noise = TelescopeNoise(1., 1., rxspecfile='')
+        self.scope_noise = TelescopeNoise(1., 1.)
+        self.scope_noise.rxf_path = ''
         self.file_content = ("# Header metadata\n" 
                              "#freq	Trx	G	eps \n"
                              ".422	42.	10.	0.01\n"
@@ -91,19 +94,22 @@ class Test_get_rxspecs_t_int_is_array(unittest.TestCase):
             with self.assertRaises(TypeError):
                 self.scope_noise.get_rxspecs(self.tint_in)
                 
-class Test_get_rxspecs_no_header(ParametrizedTestCase):
+class Test_get_rxspecs_invalid_header(ParametrizedTestCase):
     """
-    Test whether an RcvrFileParseError is raised when file contains no header
+    Test whether an RcvrFileParseError is raised when file does not contain
+    or contains an invalid header
     """
     def setUp(self):
-        self.scope_noise = TelescopeNoise(1., 1., rxspecfile='')
+        self.scope_noise = TelescopeNoise(1., 1.)
+        self.scope_noise.rxf_path = ''
 
-    def test_missing_header_in_rxspec_file_raises_RcvrFileParseError(self):
+    def test_invalid_header_in_rxspec_file_raises_RcvrFileParseError(self):
         print("file_content =\n{}".format(self.file_content))
         m = mock_open(read_data=self.file_content)
         m.return_value.__iter__ = lambda self: iter(self.readline, '')
         with patch("frequencyoptimizer.open", m):
-            with self.assertRaisesRegexp(fop.RcvrFileParseError,".*no header.*"):
+            with self.assertRaisesRegexp(fop.RcvrFileParseError,
+                                         ".*missing.*header.*"):
                 self.scope_noise.get_rxspecs(0.)    
         
 if __name__ == '__main__':
@@ -124,13 +130,21 @@ if __name__ == '__main__':
     for fstr in get_rxspecs_missing_val_test_params:
         suite.addTest(ParametrizedTestCase.parametrize(Test_get_rxspecs_missing_value,
                                                        file_content=fstr))
-    get_rxspecs_missing_header_test_params = [("# Header metadata\n" 
+    get_rxspecs_invalid_header_test_params = [("# Header metadata\n" 
                                                ".422	42.	10.	0.01\n"
                                                ".424	22.	7.5	0.01"),
                                               (".422	42.	10.	0.01\n"
+                                               ".424	22.	7.5	0.01"),
+                                              ("# Header metadata\n"
+                                               "#Trx	freq	G	eps \n"
+                                               ".422	42.	10.	0.01\n"
+                                               ".424	22.	7.5	0.01"),
+                                              ("# Header metadata\n"
+                                               "#freq	Tsys	G	eps \n"
+                                               ".422	42.	10.	0.01\n"
                                                ".424	22.	7.5	0.01")]
-    for fstr in get_rxspecs_missing_header_test_params:
-        suite.addTest(ParametrizedTestCase.parametrize(Test_get_rxspecs_no_header,
+    for fstr in get_rxspecs_invalid_header_test_params:
+        suite.addTest(ParametrizedTestCase.parametrize(Test_get_rxspecs_invalid_header,
                                                        file_content=fstr))
     suite.addTest(unittest.makeSuite(Test_get_rxspecs_t_int_is_array))
     unittest.TextTestRunner(verbosity=2).run(suite)
