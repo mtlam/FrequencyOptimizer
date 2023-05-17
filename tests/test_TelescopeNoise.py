@@ -1,5 +1,7 @@
 import unittest
 import warnings
+import tempfile
+from os import path
 from mock import patch, mock_open
 import numpy as np
 import parameterized as ptzd
@@ -186,6 +188,27 @@ class Test_TelescopeNoise__init__rxspecfile_invalid_type(unittest.TestCase):
             scope_noise = TelescopeNoise(self.gain,
                                          self.T_rx,
                                          rxspecfile=rxspecfile)
+
+# class Test_TelescopeNoise__init__rxspecdir_invalid_type(unittest.TestCase):
+#     """
+#     Tests parameterized over type to check whether
+#     TypeError raised when rxspecdir is invalid type
+#     """
+#     def setUp(self):
+#         self.gain = 1.
+#         self.T_rx = 1.
+    
+#     @ptzd.parameterized.expand([(1.,), ([1., 2.],), (0,)],
+#                                name_func=lambda fxn, n, par : "_{}_".format(ptzd.parameterized.to_safe_name(str(type(par.args[0])))).join(fxn.__name__.split("_argtype_")))
+#     def test_rxspecdir_argtype_raises_TypeError(self, rxspecdir):
+#         m = mock_open()
+#         m.return_value.__iter__ = lambda self: iter(self.readline, '')
+#         with patch("frequencyoptimizer.open", m):
+#             with self.assertRaises(TypeError):
+#                 scope_noise = TelescopeNoise(self.gain,
+#                                              self.T_rx,
+#                                              rxspecfile="",
+#                                              rxspecdir=rxspecdir)
             
 class Test_TelescopeNoise__init__only_rx_nu_npndarray(unittest.TestCase):
     """
@@ -212,6 +235,80 @@ class Test_TelescopeNoise__init__only_rx_nu_npndarray(unittest.TestCase):
                                      T=1.,
                                      rx_nu=self.rx_nu)
         self.assertFalse(mock_warn.called)
+
+# class Test_TelescopeNoise__init__user_defined_rxspecfile_takes_precedence(unittest.TestCase):
+#      """
+#      Test whether user-defined rxspecfile class takes precedence over default
+#      """
+
+class Test_TelescopeNoise__init__rxspecfile_is_None(unittest.TestCase):
+    """
+    Test whether rx_nu, gain, T_rx, epsilon, and T attributes are the same as
+    input arguments when rxspecfile is None
+    """
+    def setUp(self):
+        self.rxspecfile = None
+        
+    #first element of each parameter tuple must be unique
+    @ptzd.parameterized.expand([("rx_nu", np.array([1., 2.])),
+                                ("gain", np.array([1., 2.])),
+                                ("T_rx", np.array([1., 2.])),
+                                ("epsilon", np.array([1., 2.])),
+                                ("T", np.array([1., 2.]))],
+                               name_func=lambda fxn, n, par : "_{}_".format(ptzd.parameterized.to_safe_name(par.args[0])).join(fxn.__name__.split("_attr_")))
+    def test_attr_same_as_input_arg_when_rxspecfile_is_None(self,
+                                                            attr_name,
+                                                            arg_val):
+        scope_noise = TelescopeNoise(arg_val,
+                                     arg_val,
+                                     epsilon=arg_val,
+                                     T=arg_val,
+                                     rx_nu=arg_val)
+        self.assertIsNone(np.testing.assert_array_equal(getattr(scope_noise,
+                                                                attr_name),
+                                                        arg_val))
+
+class Test_TelescopeNoise__init__nonexistent_rxspecfile(unittest.TestCase):
+    """
+    Test whether IOError is raised if rxspecfile is not None, but does not exist
+    """
+    def setUp(self):
+        self.rxspecfile = ""
+
+    @patch("frequencyoptimizer.os.path.isfile")
+    def test_rxspecfile_does_not_exist_raises_IOError_errno2(self,
+                                                             mock_os_path_isfile):
+        mock_os_path_isfile.return_value = False
+        with self.assertRaises(IOError) as err:
+            scope_noise = TelescopeNoise(1.,
+                                         1.,
+                                         rxspecfile=self.rxspecfile)
+        self.assertEqual(err.exception.errno, 2)
+
+class Test_TelescopeNoise__init__rxspecfile_precedence(unittest.TestCase):
+    """
+    Test that an rxspecfile in the working directory is loaded when a file
+    with the same name exists in the default rxspecs directory
+    """
+    def setUp(self):
+        self.file_content = ("#freq	Trx	G	eps\n"
+                             "1000.	10.	1.	0.01\n")
+        self.basename = "test.txt"
+        self.workingdir_rxspecfile = tempfile.NamedTemporaryFile(prefix=self.basename,
+                                                                 dir=".")
+        self.rxspecs_rxspecfile = tempfile.NamedTemporaryFile(prefix=self.basename,
+                                                                 dir=path.join(fop.__dir__,
+                                                                               'rxspecs'))
+
+    def test_rxspecfile_in_working_dir_takes_precedence_over_default_dir(self):
+        m = mock_open(read_data=self.file_content)
+        m.return_value.__iter__ = lambda self: iter(self.readline, '')
+        with patch("frequencyoptimizer.open", m):
+            scope_noise = TelescopeNoise(1.,
+                                         1.,
+                                         rxspecfile=self.basename)
+            self.assertEqual(scope_noise.rxspecfile,
+                             path.abspath(path.join(".", self.basename)))
 
 if __name__ == '__main__':
     unittest.main()

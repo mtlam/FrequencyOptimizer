@@ -201,7 +201,8 @@ def tskypy(tskylist, gl, gb, freq):
     # scale temperature before returning
     return tsky_haslam * (freq/408.0)**(-2.6)
 
-
+def get_rxspecs_options():
+    return os.listdir(os.path.join(__dir__, 'rxspecs'))
 
 class PulsarNoise:
     '''
@@ -323,13 +324,17 @@ class TelescopeNoise:
     rx_nu : None or numpy.ndarray (optional)
             Receiver frequencies over which to interpolate (GHz)
     rxspecfile : string (optional)
-                 If defined, overrides gain, T_rx, epsilon and (optionally) T. Name of receiver specifications file saved in the rxspecs/ directory and containing a header with the format
+                 Name of receiver specifications file or path to user-defined file. A user-defined file takes precedence over default files. I.e. A file in the working directory will override a default file with the same name. Call frequencyoptimizer.get_rxspecs_options() to see default files.
+                 If defined, a file overrides gain, T_rx, epsilon and (optionally) T arguments. Files must contain a header with the format
 
                 #Freq  Trx  G  Eps  t_int(optional)
 
-                immediately followed by 4 or 5 tab-separated columns of frequency, T_rx, gain, epsilon, and (optionally) T. If the receiver specifications file does not contain a 't_int' column (i.e. 'T' is not a function of frequency), 'T' must be a single value of type int or float.
+                immediately followed by 4 or 5 tab-separated columns of frequency, T_rx, gain, epsilon, and (optionally) T. If the receiver specifications file does not contain a 't_int' column (i.e. 'T' is not a function of frequency), 'T' must be a single value of type int or float. 
     '''
-    def __init__(self,gain,T_rx,epsilon=0.08,pi_V=0.1,eta=0.0,pi_L=0.0,T=1800.0,Npol=2,rx_nu=None,rxspecfile=None):
+    def __init__(self, gain, T_rx, epsilon=0.08,
+                 pi_V=0.1, eta=0.0, pi_L=0.0,
+                 T=1800.0, Npol=2, rx_nu=None,
+                 rxspecfile=None, rxspecdir=None):
 
         if not isinstance(gain, (float, np.ndarray)):
             raise TypeError("Invalid 'gain' type {}. Valid types are float "
@@ -401,17 +406,25 @@ class TelescopeNoise:
         if not isinstance(rxspecfile, (type(None), str)):
             raise TypeError("Invalid 'rxspecfile' type {}. Valid types are None "
                             "or str.".format(type(rxspecfile)))
-            
-        self.rxspecfile = rxspecfile # should do a check for path exists here
-        if self.rxspecfile is not None:
-            self.rxf_path = os.path.join(__dir__, 'rxspecs', self.rxspecfile)
-            self.rx_nu, self.T_rx, self.gain, self.epsilon, self.T = self.get_rxspecs(T)
-        else:
+        
+        if rxspecfile is None:
+            self.rxspecfile = rxspecfile
             self.rx_nu = rx_nu
             self.T_rx = T_rx
             self.gain = gain
             self.epsilon = epsilon
             self.T = T
+        elif os.path.isfile(rxspecfile):
+            self.rxspecfile = os.path.abspath(rxspecfile)
+            self.rx_nu, self.T_rx, self.gain, self.epsilon, self.T = self.get_rxspecs(T)
+        elif os.path.isfile(os.path.join(__dir__, 'rxspecs', rxspecfile)):
+            self.rxspecfile = os.path.abspath(os.path.join(__dir__,
+                                                           'rxspecs',
+                                                           rxspecfile))
+            self.rx_nu, self.T_rx, self.gain, self.epsilon, self.T = self.get_rxspecs(T)
+        else:
+            raise IOError(2, "'rxspecfile' does not exist. ", rxspecfile)
+
         self.pi_V = pi_V
         self.eta = eta
         self.pi_L = pi_L
@@ -438,7 +451,7 @@ class TelescopeNoise:
         else:
             return self.T
     def get_rxspecs(self, tint_in):
-        with open(self.rxf_path, 'r') as rxf:
+        with open(self.rxspecfile, 'r') as rxf:
             rx_nus = []
             trxs = []
             gains = []
