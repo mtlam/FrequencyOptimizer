@@ -353,6 +353,7 @@ class FrequencyOptimizer:
     log: Run in log space
     frac_bw: Run in fractional bandwidth
     full_bandiwdth: enforce full bandwidth in calculations
+    r: maximum bandwidth ratio, for max(nus)/min(nus) > r sigmas set to NaN
     masks: mask frequencies [not fully implemented]
     levels: contour levels
     colors: contour colors
@@ -735,7 +736,8 @@ class FrequencyOptimizer:
                     #print C,B
                     #if B > 1.9*C:
                     #if B > 2*C*(self.r - 1)/(self.r + 1):
-                    if self.r is not None and ((C+0.5*B)/(C-0.5*B) > self.r or B > 1.9*C or C - B/2.0 < self.numin):
+                    if (self.r is not None and (C+0.5*B)/(C-0.5*B) > self.r)\
+                        or B > 1.9*C or C - B/2.0 < self.numin:
                         self.sigmas[ic,ib] =np.nan
                     else:
                         nulow = C - B/2.0
