@@ -32,10 +32,10 @@ rc('axes',**{'labelsize':18,'titlesize':18})
 
 
 def nolog(x,pos):
-    return "$\hfill %0.1f$" % (10**x)
+    return r"$\hfill %0.1f$" % (10**x)
 noformatter = FuncFormatter(nolog)
 def nolog2(x,pos):
-    return "$\hfill %0.2f$" % (10**x)
+    return r"$\hfill %0.2f$" % (10**x)
 noformatter2 = FuncFormatter(nolog2)
 
 def log(x,pos):
@@ -43,14 +43,14 @@ def log(x,pos):
     #if y == 2:
     #    return "$\hfill 100$" #added
     if y == 1:
-        return "$\hfill 10$"
+        return r"$\hfill 10$"
     elif y == 0:
-        return "$\hfill 1$"
+        return r"$\hfill 1$"
     elif y == -1:
-        return "$\hfill 0.1$"
+        return r"$\hfill 0.1$"
     elif y == -2:
-        return "$\hfill 0.01$"
-    return "$\hfill 10^{%i}$" % x#np.log10(x) 
+        return r"$\hfill 0.01$"
+    return r"$\hfill 10^{%i}$" % x#np.log10(x) 
 
 formatter = FuncFormatter(log)
 
@@ -59,16 +59,16 @@ formatter = FuncFormatter(log)
 def log100(x,pos):
     y = x#np.log10(x)
     if y == 2:
-        return "$\hfill 100$" #added
+        return r"$\hfill 100$" #added
     elif y == 1:
-        return "$\hfill 10$"
+        return r"$\hfill 10$"
     elif y == 0:
-        return "$\hfill 1$"
+        return r"$\hfill 1$"
     elif y == -1:
-        return "$\hfill 0.1$"
+        return r"$\hfill 0.1$"
     elif y == -2:
-        return "$\hfill 0.01$"
-    return "$\hfill 10^{%i}$" % x#np.log10(x) 
+        return r"$\hfill 0.01$"
+    return r"$\hfill 10^{%i}$" % x#np.log10(x) 
 
 formatter100 = FuncFormatter(log100)
 
@@ -112,7 +112,11 @@ def epoch_averaged_error(C,var=False):
     N = len(C)
     UT = np.matrix(np.ones(N))
     U = UT.T
-    CI = C.I
+    try:
+        CI = C.I
+    except np.linalg.LinAlgError:
+        print("Warning: singular matrix, using pseudoinverse")
+        CI = np.linalg.pinv(C)
     C_E = np.dot(np.dot(UT,CI),U).I
     if var:
         return C_E[0,0]
@@ -389,20 +393,20 @@ class FrequencyOptimizer:
             else:
                 MIN = np.log10(numin)
                 MAX = np.log10(numax)
-                self.Cs = np.logspace(MIN,MAX,(MAX-MIN)*nsteps+1)
+                self.Cs = np.logspace(MIN,MAX,int((MAX-MIN)*nsteps+1))
                 if full_bandwidth:
                     MAX = np.log10(2*numax)
-                    self.Bs = np.logspace(MIN,MAX,(MAX-MIN)*nsteps+1) 
+                    self.Bs = np.logspace(MIN,MAX,int((MAX-MIN)*nsteps+1))
                 else:
-                    self.Bs = np.logspace(MIN,MAX,(MAX-MIN)*nsteps+1)
+                    self.Bs = np.logspace(MIN,MAX,int((MAX-MIN)*nsteps+1))
         else:
             if self.log == False:
                 pass
             else:
                 MIN = np.log10(numin)
                 MAX = np.log10(numax)
-                self.Cs = np.logspace(MIN,MAX,(MAX-MIN)*nsteps+1)
-                self.Bs = np.logspace(MIN,MAX,(MAX-MIN)*nsteps+1)
+                self.Cs = np.logspace(MIN,MAX,int((MAX-MIN)*nsteps+1))
+                self.Bs = np.logspace(MIN,MAX,int((MAX-MIN)*nsteps+1))
                 self.Fs = np.logspace(np.log10(self.Bs[-1]/self.Cs[0]),np.log10(1.0),len(self.Cs))[::-1]
                 self.Fs = np.logspace(np.log10(self.Bs[0]/self.Cs[-1]),np.log10(2.0),len(self.Cs))
                 # do not log space?
@@ -921,7 +925,7 @@ class FrequencyOptimizer:
             
             
         cbar = fig.colorbar(im)#,format=formatter)
-        cbar.set_label("$\mathrm{TOA~Uncertainty~\sigma_{TOA}~(\mu s)}$")
+        cbar.set_label(r"$\mathrm{TOA~Uncertainty~\sigma_{TOA}~(\mu s)}$")
 
         # https://stackoverflow.com/questions/6485000/python-matplotlib-colorbar-setting-tick-formator-locator-changes-tick-labels
         cbar.locator = MultipleLocator(1)
