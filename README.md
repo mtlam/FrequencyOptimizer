@@ -76,7 +76,11 @@ Usage:
 * Npol: Number of polarization states
 * rx_nu: Receiver frequencies over which to interpolate (GHz)
 * interpolate: (boolean) must be set to True to interpolate gain, T_rx, and/or eps
+* rxspecfile: (string) If defined, overrides gain, T_rx, epsilon and (optionally) T. Name of receiver specifications file saved in the rxspecs/ directory and containing a header with the format
 
+    #Freq  Trx  G  Eps  t_int(optional)
+
+    immediately followed by 4 or 5 tab-separated columns of frequency, T_rx, gain, epsilon, and (optionally) T. If the receiver specifications file does not contain a 't_int' column (i.e. 'T' is not a function of frequency), 'T' must be a single value of type int or float.
 
 FrequencyOptimizer
 ------------------
