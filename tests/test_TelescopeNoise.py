@@ -11,6 +11,8 @@ from frequencyoptimizer import TelescopeNoise
 """
 Unittests for frequencyoptimizer.TelescopeNoise class
 """
+# enable frequency-dependent integration time for testing
+fop._DISABLE_FREQDEPDT_T = False
 
 class Test_TelescopeNoise__init__rx_nu_length_mismatch(unittest.TestCase):
     """

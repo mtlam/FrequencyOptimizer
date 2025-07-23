@@ -14,6 +14,9 @@ import os
 import line_profiler
 import atexit
 
+# temporarily disable frequency-dependent integration time until simultaneous
+# multi-band is fully supported
+_DISABLE_FREQDEPDT_T = True
 profile = line_profiler.LineProfiler()
 atexit.register(profile.print_stats)
 
@@ -320,20 +323,19 @@ class TelescopeNoise:
           Voltage cross-coupling coefficient
     pi_L : float (optional)
            Degree of linear polarization
-    T : float or numpy.ndarray (optional)
+    T : float (optional)
         Integration time (s)
-        If array must be same length as rx_nu
     Npol : int or float (optional)
            Number of polarization states
     rx_nu : None or numpy.ndarray (optional)
             Receiver frequencies over which to interpolate (GHz)
     rxspecfile : string (optional)
                  Name of receiver specifications file or path to user-defined file. A user-defined file takes precedence over default files. I.e. A file in the working directory will override a default file with the same name. Call frequencyoptimizer.get_rxspecs_options() to see default files.
-                 If defined, a file overrides gain, T_rx, epsilon and (optionally) T arguments. Files must contain a header with the format
+                 If defined, a file overrides gain, T_rx, and epsilon arguments. Files must contain a header with the format
 
-                #Freq  Trx  G  Eps  t_int(optional)
+                #Freq  Trx  G  Eps
 
-                immediately followed by 4 or 5 tab-separated columns of frequency, T_rx, gain, epsilon, and (optionally) T. If the receiver specifications file does not contain a 't_int' column (i.e. 'T' is not a function of frequency), 'T' must be a single value of type int or float. 
+                immediately followed by 4 tab-separated columns of frequency, T_rx, gain, and epsilon.
     '''
     def __init__(self, gain, T_rx, epsilon=0.08,
                  pi_V=0.1, eta=0.0, pi_L=0.0,
@@ -382,10 +384,10 @@ class TelescopeNoise:
         if not isinstance(pi_L, float):
             raise TypeError("Invalid 'pi_L' type {}. Valid types are "
                             "float.".format(type(pi_L)))
-        if not isinstance(T, (float, np.ndarray)):
-            raise TypeError("Invalid 'T' type {}. Valid types are float "
-                            "or numpy.ndarray.".format(type(T)))
         if isinstance(T, np.ndarray):
+            if _DISABLE_FREQDEPDT_T:
+                raise NotImplementedError("Frequency-dependent T not "
+                                          "fully supported")
             try:
                 if len(T) != len(rx_nu):
                     raise ValueError("'T' and 'rx_nu' must be "
@@ -393,6 +395,9 @@ class TelescopeNoise:
             except TypeError:
                 raise TypeError("if 'T' is type numpy.ndarray, "
                                 "rx_nus must also be numpy.ndarray of same length")
+        elif not isinstance(T, float):
+            raise TypeError("Invalid 'T' type {}. Valid types are float "
+                            "or numpy.ndarray.".format(type(T)))
         if not isinstance(Npol, (int, float)):
             raise TypeError("Invalid 'Npol' type {}. Valid types are int or "
                             "float.".format(type(Npol)))
