@@ -63,7 +63,7 @@ class Test_build_jitter_covmat(ParametrizedTestCase):
                                         glat=37.0666)
         self.scope_noise = fop.TelescopeNoise(2.,
                                               T_rx=22.73,
-                                              T=1800,
+                                              T=1800.,
                                               epsilon=0.01)
         self.gal_noise = fop.GalacticNoise()
         self.fop_inst = fop.FrequencyOptimizer(self.psr_noise,
@@ -143,7 +143,7 @@ class Test_build_DMnu_covmat(ParametrizedTestCase):
                                          glat=37.0666)
         self.scope_noise = fop.TelescopeNoise(2.,
                                               T_rx=22.73,
-                                              T=1800,
+                                              T=1800.,
                                               epsilon=0.01)
         self.gal_noise = fop.GalacticNoise()
         self.fop_inst = fop.FrequencyOptimizer(self.psr_noise,
