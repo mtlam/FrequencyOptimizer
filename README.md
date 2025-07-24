@@ -1,21 +1,19 @@
-Original code by Michael T. Lam
-Modified by Ryan S. Lynch and T. Cohen
-
 FrequencyOptimizer
 =======
 
-A python package for the optimal frequencies analysis (M. T. Lam et al 2018) of pulsars
+A python package for the optimal frequencies analysis (Lam et al., 2018) of pulsars
 
 Requires:
-python 2.7
-numpy
-scipy
-matplotlib
+* python 2.7
+* numpy
+* scipy
+* matplotlib
 
 What's New?
 -----------
 * Script to estimate TOA uncertainties for a list of real pulsars (predict_toas.py)
-* Support for frequency-dependent Tsys, Gain, and fractional gain error
+* Support for frequency-dependent sky temperatures, receiver temperatures (`T_const` is now `T_rx`), gain, and fractional gain error
+* Default and user-defined receiver specification files
 * Speed-ups and bug fixes
 
 PulsarNoise
@@ -76,11 +74,13 @@ Usage:
 * Npol: Number of polarization states
 * rx_nu: Receiver frequencies over which to interpolate (GHz)
 * interpolate: (boolean) must be set to True to interpolate gain, T_rx, and/or eps
-* rxspecfile: (string) If defined, overrides gain, T_rx, epsilon and (optionally) T. Name of receiver specifications file saved in the rxspecs/ directory and containing a header with the format
-
-    #Freq  Trx  G  Eps  t_int(optional)
-
-    immediately followed by 4 or 5 tab-separated columns of frequency, T_rx, gain, epsilon, and (optionally) T. If the receiver specifications file does not contain a 't_int' column (i.e. 'T' is not a function of frequency), 'T' must be a single value of type int or float.
+* rxspecfile : string (optional)
+  Name of receiver specifications file or path to user-defined file. A user-defined file takes precedence over default files. I.e. A file in the working directory will override a default file with the same name. Call frequencyoptimizer.get_rxspecs_options() to see default files.
+  If defined, a file overrides gain, T_rx, and epsilon arguments. Files must contain a header with the format
+```
+                #Freq  Trx  G  Eps
+```
+immediately followed by 4 tab-separated columns of frequency, T_rx, gain, and epsilon.
 
 FrequencyOptimizer
 ------------------
