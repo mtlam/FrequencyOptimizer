@@ -11,6 +11,7 @@ Requires:
 
 What's New?
 -----------
+* In Lam et al. (2018), Equation 4 contains the white noise uncertainty added in quadrature. We have determined that since the uncertainty in DM fit (`sigmadm2`) includes the white noise covariance matrix, that term is extraneous and is no longer included in the total TOA uncertainty returned by `FrequencyOptimizer.calc_single`. We still report the white noise uncertainty separately when `vverbose=True`.
 * Script to estimate TOA uncertainties for a list of real pulsars (predict_toas.py)
 * Support for frequency-dependent sky temperatures, receiver temperatures (`T_const` is now `T_rx`), gain, and fractional gain error
 * Default and user-defined receiver specification files
@@ -143,4 +144,25 @@ Sample Code
 Citations
 ---------
 
-Please cite this github page currently.
+If you use FrequencyOptimizer in work that results in a publication, please use the following attribution:
+
+```
+@ARTICLE{Lam2018FrequencyOptimizer,
+       author = {{Lam}, M.~T. and {McLaughlin}, M.~A. and {Cordes}, J.~M. and {Chatterjee}, S. and {Lazio}, T.~J.~W.},
+        title = "{Optimal Frequency Ranges for Submicrosecond Precision Pulsar Timing}",
+      journal = {\apj},
+     keywords = {gravitational waves, methods: observational, pulsars: general, Astrophysics - High Energy Astrophysical Phenomena, Astrophysics - Instrumentation and Methods for Astrophysics},
+         year = 2018,
+        month = jul,
+       volume = {861},
+       number = {1},
+          eid = {12},
+        pages = {12},
+          doi = {10.3847/1538-4357/aac48d},
+archivePrefix = {arXiv},
+       eprint = {1710.02272},
+ primaryClass = {astro-ph.HE},
+       adsurl = {https://ui.adsabs.harvard.edu/abs/2018ApJ...861...12L},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+```
