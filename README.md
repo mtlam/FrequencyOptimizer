@@ -12,7 +12,6 @@ Requires:
 What's New?
 -----------
 * In Lam et al. (2018), Equation 4 contains the white noise uncertainty added in quadrature. We have determined that since the uncertainty in DM fit (`sigmadm2`) includes the white noise covariance matrix, that term is extraneous and is no longer included in the total TOA uncertainty returned by `FrequencyOptimizer.calc_single`. We still report the white noise uncertainty separately when `vverbose=True`.
-* Script to estimate TOA uncertainties for a list of real pulsars (predict_toas.py)
 * Support for frequency-dependent sky temperatures, receiver temperatures (`T_const` is now `T_rx`), gain, and fractional gain error
 * Default and user-defined receiver specification files
 * Speed-ups and bug fixes
