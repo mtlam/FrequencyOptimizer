@@ -62,7 +62,7 @@ A class for describing telescope noise parameters
 
 Usage: 
        
-    tn = TelescopeNoise(gain,T_rx,epsilon=0.08,pi_V=0.1,eta=0.0,pi_L=0.0,T=1800.0,Npol=2,rx_nu=None,interpolate=False)
+    tn = TelescopeNoise(gain,T_rx,epsilon=0.08,pi_V=0.1,eta=0.0,pi_L=0.0,T=1800.0,Npol=2,rx_nu=None)
 
 * gain: Telescope gain (K/Jy), if array must be same length as rx_nu 
 * T_rx: Receiver temperature (K) (i.e. T_sys - T_gal - T_CMB), if array must be same length as rx_nu 
@@ -73,7 +73,6 @@ Usage:
 * T: Integration time (s)
 * Npol: Number of polarization states
 * rx_nu: Receiver frequencies over which to interpolate (GHz)
-* interpolate: (boolean) must be set to True to interpolate gain, T_rx, and/or eps
 * rxspecfile : string (optional)
   Name of receiver specifications file or path to user-defined file. A user-defined file takes precedence over default files. I.e. A file in the working directory will override a default file with the same name. Call frequencyoptimizer.get_rxspecs_options() to see default files.
   If defined, a file overrides gain, T_rx, and epsilon arguments. Files must contain a header with the format
