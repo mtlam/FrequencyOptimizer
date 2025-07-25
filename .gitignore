@@ -1,2 +1,7 @@
 *~
 *.pyc
+UWB/
+GBA/
+\#*\#
+.\#*
+.ipynb_checkpoints/

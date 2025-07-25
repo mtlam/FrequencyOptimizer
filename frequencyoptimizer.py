@@ -10,9 +10,16 @@ import DISS
 import glob
 import warnings
 import parallel
+import os
 
-    
+# temporarily disable frequency-dependent integration time until simultaneous
+# multi-band is fully supported
+_DISABLE_FREQDEPDT_T = True
 
+__dir__ = os.path.dirname(os.path.abspath(__file__))
+
+
+np.seterr(invalid="warn")
 
 
 rc('text',usetex=True)
@@ -98,6 +105,8 @@ LWS = [2.5,2,1.5,1,0.5]
 LWS = [2.5,2.25,2,1.75,1.5]
 #LWS = [2.5,2.25,2.0,1.75,1.5,1.25]
 
+RXFILE_HEADER_FMT = "#Freq  Trx  G  Eps  t_int(optional)"
+
 def epoch_averaged_error(C,var=False):
     # Stripped down version from rednoisemodel.py from the excess noise project
     N = len(C)
@@ -132,7 +141,9 @@ def E_beta(r,beta=11.0/3):
     r2 = r**2
     return np.abs(r2 / (r2-1)) * F_beta(r,beta)
 
-def evalDMnuError(dnuiss,nu1,nu2,g=0.46,q=1.15,screen=False,fresnel=False):
+
+def evalDMnuError(dnud,nus,g=0.46,q=1.15,screen=False,fresnel=False):
+    ''' Returns matrix of DMnu errors'''
     # nu2 should be less than nu1
     # nu in GHz, dnuiss in GHz
     # return value in microseconds
@@ -141,22 +152,87 @@ def evalDMnuError(dnuiss,nu1,nu2,g=0.46,q=1.15,screen=False,fresnel=False):
     if screen:
         g = 1
     if fresnel:
-        phiF = dnuiss
+        phiF = dnud
     else:
-        phiF = 9.6 * ((nu1 / dnuiss)/100)**(5.0/12) #equation 15
-    r = nu1/nu2
-    return 0.184 * g * q * E_beta(r) * (phiF**2 / (nu1 * 1000))
+        phiF = 9.6 * ((nus / dnud)/100)**(5.0/12) #equation 15
+    r = np.outer(1 / nus, nus)
+    np.fill_diagonal(r, 0)
+    sig_asym = 0.184 * g * q * E_beta(r) * (phiF**2 / (nus * 1000))
+    #nu2 should be < nu1 so lower triangle should = upper
+    sigma = np.triu(sig_asym) + np.triu(sig_asym).transpose()
+    return sigma
 
+def readtskyfile():
+    """Read in tsky.ascii into a list from which temps can be retrieved."""
 
+    tskypath = os.path.join(__dir__, 'lookuptables/tsky.ascii')
+    tskylist = []
+    with open(tskypath) as f:
+        for line in f:
+            str_idx = 0
+            while str_idx < len(line):
+                # each temperature occupies space of 5 chars
+                temp_string = line[str_idx:str_idx+5]
+                try:
+                    tskylist.append(float(temp_string))
+                except:
+                    pass
+                str_idx += 5
 
+    return tskylist
 
+def tskypy(tskylist, gl, gb, freq):
+    """ Calculate tsky from Haslam table, scale to frequency in MHz."""
+    # ensure l is in range 0 -> 360
+    b = gb
+    if gl < 0.:
+        l = 360 + gl
+    else:
+        l = gl
+        
+    # convert from l and b to list indices
+    j = b + 90.5
+    if j > 179:
+        j = 179
+            
+    nl = l - 0.5
+    if l < 0.5:
+        nl = 359
+    i = float(nl) / 4.
+
+    tsky_haslam = tskylist[180*int(i) + int(j)]
+    # scale temperature before returning
+    return tsky_haslam * (freq/408.0)**(-2.6)
+
+def get_rxspecs_options():
+    return os.listdir(os.path.join(__dir__, 'rxspecs'))
 
 class PulsarNoise:
     '''
     Container class for all pulsar-related variables
+
+    alpha: Pulsar flux spectral index
+    dtd: Scintillation timescale (s)
+    dnud: Scintillation bandwidth (GHz)
+    taud: Scattering timescale (us)
+    C1: Coefficient relating dnud to taud (1.16 = uniform Kolmogorov medium) 
+    I_0: Pulsar flux density at 1 GHz
+    DM: Dispersion measure (pc cm^-3)
+    D: Distance (kpc)
+    Uscale: Dimensionless factor that describes how intensity is distributed across pulse phase, see Sec. 2.2.1 of (Lam et al. 2018)
+    tauvar: Variation in scattering timescale (us)
+    Weffs: Effective width, can be an array (us)
+    W50s: Pulse full-width at half-maximum, can be an array (us)
+    sigma_Js: Jitter for observation time T, can be an array (us) [note: T needs to be related to the TelescopeNoise class]
+    glon: Galactic longitude (deg)
+    glat: galactic latitude (deg)
     '''
-    def __init__(self,name,alpha=1.6,dtd=None,dnud=None,taud=None,C1=1.16,I_0=18.0,DM=0.0,D=1.0,Uscale=1.0,tauvar=None,Weffs=0.0,W50s=0.0,sigma_Js=0.0,P=None):
+    def __init__(self,name,alpha=1.6,dtd=None,dnud=None,taud=None,C1=1.16,I_0=18.0,DM=0.0,D=1.0,Uscale=1.0,tauvar=None,Weffs=0.0,W50s=0.0,sigma_Js=0.0,P=None,glon=None,glat=None):
         self.name = name
+        self.glon = glon
+        self.glat = glat
+        self.dnud = dnud
+        self.taud = taud
 
         if dtd is None:
             #Assume dtd is large?
@@ -218,40 +294,247 @@ class GalacticNoise:
         self.beta = beta
         self.T_e = T_e
         self.fillingfactor = fillingfactor
+        self.tskylist = readtskyfile()
 
+
+class RcvrFileParseError(Exception):
+    pass
 
 class TelescopeNoise:
     '''
     Container class for all Telescope-related variables.
 
-    gain (K/Jy): Telescope gain
-    T_const (K): System temperature plus other constant temperatures
-    epsilon: Polarization fractional gain error (delta g/g)
-    pi_V: Degree of circular polarization
-    eta: Voltage cross-coupling coefficient
-    pi_L: Degree of linear polarization
-    T (s): Integration time 
+    gain : float or numpy.ndarray
+           Telescope gain (K/Jy) 
+           If array must be same length as rx_nu 
+    T_rx : float or numpy.ndarray
+           Receiver temperature (K) (i.e. T_sys - T_gal - T_CMB)
+           If array must be same length as rx_nu 
+    epsilon : float or numpy.ndarray (optional)
+              Fractional gain error
+              If array must be same length as rx_nu
+    pi_V : float (optional) 
+           Degree of circular polarization
+    eta : float (optional)
+          Voltage cross-coupling coefficient
+    pi_L : float (optional)
+           Degree of linear polarization
+    T : float (optional)
+        Integration time (s)
+    Npol : int or float (optional)
+           Number of polarization states
+    rx_nu : None or numpy.ndarray (optional)
+            Receiver frequencies over which to interpolate (GHz)
+    rxspecfile : string (optional)
+                 Name of receiver specifications file or path to user-defined file. A user-defined file takes precedence over default files. I.e. A file in the working directory will override a default file with the same name. Call frequencyoptimizer.get_rxspecs_options() to see default files.
+                 If defined, a file overrides gain, T_rx, and epsilon arguments. Files must contain a header with the format
+
+                #Freq  Trx  G  Eps
+
+                immediately followed by 4 tab-separated columns of frequency, T_rx, gain, and epsilon.
     '''
-    def __init__(self,gain,T_const,epsilon=0.08,pi_V=0.1,eta=0.0,pi_L=0.0,T=1800.0,Npol=2):
-        self.gain = gain
-        self.T_const = T_const
-        self.epsilon = epsilon
+    def __init__(self, gain, T_rx, epsilon=0.08,
+                 pi_V=0.1, eta=0.0, pi_L=0.0,
+                 T=1800.0, Npol=2, rx_nu=None,
+                 rxspecfile=None, rxspecdir=None):
+
+        if not isinstance(gain, (float, np.ndarray)):
+            raise TypeError("Invalid 'gain' type {}. Valid types are float "
+                            "or numpy.ndarray.".format(type(gain)))
+        if isinstance(gain, np.ndarray):
+            try:
+                if len(gain) != len(rx_nu):
+                    raise ValueError("'gain' and 'rx_nu' must be "
+                                     "the same length.")
+            except TypeError:
+                raise TypeError("if 'gain' is type numpy.ndarray, "
+                                "rx_nus must also be numpy.ndarray of same length")
+        if not isinstance(T_rx, (float, np.ndarray)):
+            raise TypeError("Invalid 'T_rx' type {}. Valid types are float "
+                            "or numpy.ndarray.".format(type(T_rx)))
+        if isinstance(T_rx, np.ndarray):
+            try:
+                if len(T_rx) != len(rx_nu):
+                    raise ValueError("'T_rx' and 'rx_nu' must be "
+                                     "the same length.")
+            except TypeError:
+                raise TypeError("if 'T_rx' is type numpy.ndarray, "
+                                "rx_nus must also be numpy.ndarray of same length")
+        if not isinstance(epsilon, (float, np.ndarray)):
+            raise TypeError("Invalid 'epsilon' type {}. Valid types are float "
+                            "or numpy.ndarray.".format(type(epsilon)))
+        if isinstance(epsilon, np.ndarray):
+            try:
+                if len(epsilon) != len(rx_nu):
+                    raise ValueError("'epsilon' and 'rx_nu' must be "
+                                     "the same length.")
+            except TypeError:
+                raise TypeError("if 'epsilon' is type numpy.ndarray, "
+                                "rx_nus must also be numpy.ndarray of same length")
+        if not isinstance(pi_V, float):
+            raise TypeError("Invalid 'pi_V' type {}. Valid types are "
+                            "float.".format(type(pi_V)))
+        if not isinstance(eta, float):
+            raise TypeError("Invalid 'eta' type {}. Valid types are "
+                            "float.".format(type(eta)))
+        if not isinstance(pi_L, float):
+            raise TypeError("Invalid 'pi_L' type {}. Valid types are "
+                            "float.".format(type(pi_L)))
+        if isinstance(T, np.ndarray):
+            if _DISABLE_FREQDEPDT_T:
+                raise NotImplementedError("Frequency-dependent T not "
+                                          "fully supported")
+            try:
+                if len(T) != len(rx_nu):
+                    raise ValueError("'T' and 'rx_nu' must be "
+                                     "the same length.")
+            except TypeError:
+                raise TypeError("if 'T' is type numpy.ndarray, "
+                                "rx_nus must also be numpy.ndarray of same length")
+        elif not isinstance(T, float):
+            raise TypeError("Invalid 'T' type {}. Valid types are float "
+                            "or numpy.ndarray.".format(type(T)))
+        if not isinstance(Npol, (int, float)):
+            raise TypeError("Invalid 'Npol' type {}. Valid types are int or "
+                            "float.".format(type(Npol)))
+        if not isinstance(rx_nu, (type(None), np.ndarray)):
+            raise TypeError("Invalid 'rx_nu' type {}. Valid types are None or "
+                            "numpy.ndarray.".format(type(rx_nu)))
+        if isinstance(rx_nu, np.ndarray) and not any([isinstance(k, np.ndarray)\
+                                                      for k in [gain,
+                                                                T_rx,
+                                                                epsilon,
+                                                                T]]):
+            warnings.warn("rx_nu is type numpy.ndarray but other "
+                          "frequency-dependent parameters are not. "
+                          "Ignoring rx_nu and not interpolating.")
+        if not isinstance(rxspecfile, (type(None), str)):
+            raise TypeError("Invalid 'rxspecfile' type {}. Valid types are None "
+                            "or str.".format(type(rxspecfile)))
+        
+        if rxspecfile is None:
+            self.rxspecfile = rxspecfile
+            self.rx_nu = rx_nu
+            self.T_rx = T_rx
+            self.gain = gain
+            self.epsilon = epsilon
+            self.T = T
+        elif os.path.isfile(rxspecfile):
+            self.rxspecfile = os.path.abspath(rxspecfile)
+            self.rx_nu, self.T_rx, self.gain, self.epsilon, self.T = self.get_rxspecs(T)
+        elif os.path.isfile(os.path.join(__dir__, 'rxspecs', rxspecfile)):
+            self.rxspecfile = os.path.abspath(os.path.join(__dir__,
+                                                           'rxspecs',
+                                                           rxspecfile))
+            self.rx_nu, self.T_rx, self.gain, self.epsilon, self.T = self.get_rxspecs(T)
+        else:
+            raise IOError(2, "'rxspecfile' does not exist. ", rxspecfile)
+
         self.pi_V = pi_V
         self.eta = eta
         self.pi_L = pi_L
-        self.T = T
         self.Npol = Npol
-
-
+                
+    def get_gain(self,nu):
+        if isinstance(self.gain, np.ndarray):
+            return np.interp(nu,self.rx_nu,self.gain)
+        else:
+            return self.gain
+    def get_epsilon(self,nu):
+        if isinstance(self.epsilon, np.ndarray):
+            return np.interp(nu,self.rx_nu,self.epsilon)
+        else:
+            return self.epsilon
+    def get_T_rx(self,nu):
+        if isinstance(self.T_rx, np.ndarray):
+            return np.interp(nu,self.rx_nu,self.T_rx)
+        else:
+            return self.T_rx
+    def get_T(self,nu):
+        if isinstance(self.T, np.ndarray):
+            return np.interp(nu,self.rx_nu,self.T)
+        else:
+            return self.T
+    def get_rxspecs(self, tint_in):
+        with open(self.rxspecfile, 'r') as rxf:
+            rx_nus = []
+            trxs = []
+            gains = []
+            eps = []
+            t_ints = []
+            header_requires = ['freq', 'trx', 'g', 'eps']
+            is_header = lambda l : l.startswith('#') and l.strip("#").lower().split()[:4] == header_requires
+            # read file
+            for line in rxf:
+                if is_header(line): # find header
+                    header = line
+                    for line in rxf: # read data (lines after header)
+                        if not line.strip(): # ignore blanks
+                            continue
+                        lsp = line.split()
+                        try:
+                            rx_nus.append(float(lsp[0]))
+                            trxs.append(float(lsp[1]))
+                            gains.append(float(lsp[2]))
+                            eps.append(float(lsp[3]))
+                        except IndexError:
+                            raise RcvrFileParseError("Receiver specifications file "
+                                                     "must have 4 or 5 "
+                                                     "columns of even length. "
+                                                     "Format is\n" + RXFILE_HEADER_FMT)
+                        try:
+                            t_ints.append(float(lsp[4]))
+                        except IndexError:
+                            pass
+                else:
+                    header = None
+            if header is None:
+                raise RcvrFileParseError("Receiver specifications file "
+                                         "has missing or invalid header. "
+                                         "Format is\n" +
+                                         RXFILE_HEADER_FMT)
+            # if no t_int column
+            if len(t_ints) == 0:
+                if not isinstance(tint_in, (int, float)):
+                    raise TypeError("If receiver specifications file "
+                                    "does not contain a "
+                                    "'t_int' column, 'T' must be of type "
+                                    "int or float, "
+                                    "not {}".format(type(tint_in)))
+                else:
+                    t_ints = np.full(len(rx_nus), tint_in)
+        # if not all([len(l) == len(rx_nus) for l in [trxs, gains, eps, t_ints]]):
+        #     # might be redundant
+        #     raise RcvrFileParseError("Columns in receiver specifications file are "
+        #                              "of uneven length.")
+        return (np.array(rx_nus), np.array(trxs), np.array(gains), np.array(eps),
+                np.array(t_ints))
 
 
 
 class FrequencyOptimizer:
     '''
     Primary class for frequency optimization
+
+    psrnoise: Pulsar Noise object
+    galnoise: Galaxy Noise object
+    telnoise: Telescope Noise object
+    numin: Lowest frequency to run (GHz)
+    numax: Highest frequency to run (GHz)
+    nsteps: Number of steps in the grid to run
+    nchan: number of underlying frequency channels
+    log: Run in log space
+    frac_bw: Run in fractional bandwidth
+    full_bandiwdth: enforce full bandwidth in calculations
+    r: maximum bandwidth ratio, for max(nus)/min(nus) > r sigmas set to NaN
+    masks: mask frequencies [not fully implemented]
+    levels: contour levels
+    colors: contour colors
+    lws: contour linewidths
+    ncpu: number of cores for multiprocess threading
     '''
     
-    def __init__(self,psrnoise,galnoise,telnoise,numin=0.01,numax=10.0,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,vverbose=False,full_bandwidth=False,masks=None,levels=LEVELS,colors=COLORS,lws=LWS,full=True,ncpu=1):
+    def __init__(self,psrnoise,galnoise,telnoise,numin=0.01,numax=10.0,r=None,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,vverbose=False,full_bandwidth=False,masks=None,levels=LEVELS,colors=COLORS,lws=LWS,ncpu=1):
 
 
 
@@ -260,6 +543,8 @@ class FrequencyOptimizer:
         self.telnoise = telnoise
         self.log = log
         self.frac_bw = frac_bw
+        self.r = r
+
         
         self.numin = numin
         self.numax = numax
@@ -308,7 +593,6 @@ class FrequencyOptimizer:
         self.levels = levels
         self.colors = colors
         self.lws = lws
-        self.full = full
         self.ncpu = ncpu
 
     def template_fitting_error(self,S,Weff=100.0,Nphi=2048): #Weff in microseconds
@@ -338,25 +622,31 @@ class FrequencyOptimizer:
             Weffs = np.zeros_like(nus)+Weffs
         B = self.get_bandwidths(nus)
        
-
-        Tsys = self.telnoise.T_const + 20 * np.power(nus/0.408,-1*self.galnoise.beta)
+        if self.psrnoise.glon is None or self.psrnoise.glat is None:
+            Tgal = 20*np.power(nus/0.408,-1*self.galnoise.beta)
+        else:
+            Tgal = np.array([tskypy(self.galnoise.tskylist,
+                                    self.psrnoise.glat,
+                                    self.psrnoise.glon,
+                                    nu*1e3) for nu in nus])
+        Tsys = self.telnoise.get_T_rx(nus) + Tgal + 2.73
 
         
         tau = 0.0
         if self.psrnoise.DM != 0.0 and self.psrnoise.D != 0.0 and self.galnoise.T_e != 0.0 and self.galnoise.fillingfactor != 0:
             tau = 1.417e-6 * (self.galnoise.fillingfactor/0.2)**-1 * self.psrnoise.DM**2 * self.psrnoise.D**-1 * np.power(self.galnoise.T_e/100,-1.35)
 
-        numer =  (self.psrnoise.I_0 * 1e-3) * np.power(nus/nuref,-1*self.psrnoise.alpha)*np.sqrt(self.telnoise.Npol*B*1e9*self.telnoise.T) 
+        numer =  (self.psrnoise.I_0 * 1e-3) * np.power(nus/nuref,-1*self.psrnoise.alpha)*np.sqrt(self.telnoise.Npol*B*1e9*self.telnoise.get_T(nus)) 
         #* np.exp(-1*tau*np.power(nus/nuref,-2.1)) #
 
-        denom = Tsys / self.telnoise.gain
+        denom = Tsys / self.telnoise.get_gain(nus)
         S = self.psrnoise.Uscale*numer/denom # numer/denom is the mean S/N over all phase. Need to adjust by the factor Uscale.
 
         
         #print numer,denom
 
         #print nus,B
-        #print self.psrnoise.I_0,self.telnoise.gain,B,self.telnoise.T#np.power(nus/nuref,-1*self.psrnoise.alpha)
+        #print self.psrnoise.I_0,self.telnoise.gain,B,self.telnoise.get_T(nus)#np.power(nus/nuref,-1*self.psrnoise.alpha)
         
         sigmas = self.template_fitting_error(S,Weffs,1)
 
@@ -379,30 +669,26 @@ class FrequencyOptimizer:
                 sigmas[inds] = 0.0 #???
         
         return np.matrix(np.diag(sigmas**2))
-        
-    def build_jitter_cov_matrix(self,nus):
+
+    def build_jitter_cov_matrix(self, nus):
         '''
         Constructs the jitter error covariance matrix
         '''
         sigma_Js = self.psrnoise.sigma_Js
         if type(sigma_Js) != np.ndarray:
-            sigma_Js = np.zeros(nus)+sigma_Js
+            sigma_Js = np.zeros(len(nus), dtype=nus.dtype) + sigma_Js
+        retval = np.matrix(np.outer(sigma_Js, sigma_Js))
 
-        retval = np.matrix(np.zeros((len(sigma_Js),len(sigma_Js))))
-        if sigma_Js is not None:
-            for i in range(len(sigma_Js)):
-                for j in range(len(sigma_Js)):
-                    retval[i,j] = sigma_Js[i] * sigma_Js[j]
         return retval
 
-        
+
     def scattering_modifications(self,tauds,Weffs,filename="ampratios.npz",directory=None):
         '''
         Takes the calculations of the convolved Gaussian-exponential simulations and returns the multiplicative factor applies to the template-fitting errors
         '''
         if len(glob.glob(filename))!=1:
             if directory is None:
-                directory = __file__.split("/")[0] + "/"
+                directory = os.path.join(os.path.dirname(__file__), '')
         else:
             directory = ""
         if type(Weffs) != np.ndarray:
@@ -442,7 +728,7 @@ class FrequencyOptimizer:
         dnud = DISS.scale_dnu_d(self.psrnoise.dnud,nuref,nus)
         taud = DISS.scale_tau_d(self.psrnoise.taud,nuref,nus)
 
-        niss = (1 + etanu* B/dnud) * (1 + etat* self.telnoise.T/dtd) 
+        niss = (1 + etanu* B/dnud) * (1 + etat* self.telnoise.get_T(nus)/dtd) 
 
         # check if niss >> 1?
         sigmas = taud/np.sqrt(niss)
@@ -487,17 +773,14 @@ class FrequencyOptimizer:
 
         ## Frequency-Dependent DM
         #DM_nu_var = evalDMnuError(self.psrnoise.dnud,np.max(nus),np.min(nus))**2 / 25.0
-        if self.full:
-            DM_nu_cov = self.build_DMnu_cov_matrix(nus)
-            DM_nu_var = epoch_averaged_error(DM_nu_cov,var=True)
-            #print nus
-            # FOO
-            #print DM_nu_cov
-            #print DM_nu_var
-            if DM_nu_var < 0.0:# or np.isnan(DM_nu_var): #no longer needed
-                DM_nu_var = 0 
-        else: # [deprecated], please be aware!
-            DM_nu_var = evalDMnuError(self.psrnoise.dnud,np.max(nus),np.min(nus))**2 / 25.0
+        DM_nu_cov = self.build_DMnu_cov_matrix(nus)
+        DM_nu_var = epoch_averaged_error(DM_nu_cov,var=True)
+        #print nus
+        # FOO
+        #print DM_nu_cov
+        #print DM_nu_var
+        if DM_nu_var < 0.0:# or np.isnan(DM_nu_var): #no longer needed
+            DM_nu_var = 0 
 
 
         
@@ -528,56 +811,19 @@ class FrequencyOptimizer:
         '''
         Constructs the frequency-dependent DM error covariance matrix
         '''
-
         dnud = DISS.scale_dnu_d(self.psrnoise.dnud,nuref,nus)
+        sigma = evalDMnuError(dnud,nus,g=g,q=q,screen=screen,fresnel=fresnel)
+        return np.asmatrix(sigma**2)
 
-
-
-        # Construct the matrix, this could be sped up by a factor of two
-        retval = np.matrix(np.zeros((len(nus),len(nus))))
-        for i in range(len(nus)):
-            for j in range(len(nus)):
-
-                if nus[i] == nus[j]:
-                    continue # already set to zero
-                
-                # speed up
-                #if retval[j,i] != 0.0:
-                #    continue
-                #    retval[i,j] = retval[j,i]
-                #    continue
-                
-                #nu2 should be less than nu1
-                if nus[i] > nus[j]: 
-                    nu1 = nus[i]
-                    nu2 = nus[j]
-                    dnuiss = dnud[i]
-                else:
-                    nu1 = nus[j]
-                    nu2 = nus[i]
-                    dnuiss = dnud[j]
-                #dnuiss = DISS.scale_dnu_d(self.psrnoise.dnud,nuref,nu1) #correct direction now, but should be nu1?
-                    
-                sigma = evalDMnuError(dnuiss,nu1,nu2,g=g,q=q,screen=screen,fresnel=fresnel)
-
-                retval[i,j] = sigma**2
-                #retval[j,i] = sigma**2
-            #raise SystemExit
-        return retval
-
-        
-
-
-        
-    def build_polarization_cov_matrix(self):
+    def build_polarization_cov_matrix(self,nus):
         '''
         Constructs the polarization error covariance matrix
         '''
         W50s = self.psrnoise.W50s
         if type(W50s) != np.ndarray:
             W50s = np.zeros(self.nchan)+W50s
-        if type(self.telnoise.epsilon) != np.ndarray:
-            epsilon = np.zeros(self.nchan)+self.telnoise.epsilon
+        #if type(self.telnoise.get_epsilon(nus)) != np.ndarray:
+        #    epsilon = np.zeros(self.nchan)+self.telnoise.get_epsilon(nus)
         if type(self.telnoise.pi_V) != np.ndarray:
             pi_V = np.zeros(self.nchan)+self.telnoise.pi_V
         if type(self.telnoise.eta) != np.ndarray:
@@ -586,25 +832,26 @@ class FrequencyOptimizer:
             pi_L = np.zeros(self.nchan)+self.telnoise.pi_L
 
 
-
+        epsilon = self.telnoise.get_epsilon(nus)
         sigmas = epsilon*pi_V*(W50s/100.0) #W50s in microseconds #do more?
         sigmasprime = 2 * np.sqrt(eta) * pi_L #Actually use this
         return np.matrix(np.diag(sigmas**2))
 
 
-
-    def calc_single(self,nus):
+    def calc_single(self,nus,retall=False):
         '''
         Calculate sigma_TOA given a selection of frequencies
         '''
         sncov = self.build_template_fitting_cov_matrix(nus)
-        jittercov = self.build_jitter_cov_matrix(nus) 
-        disscov = self.build_scintillation_cov_matrix(nus) 
 
+        jittercov = self.build_jitter_cov_matrix(nus) #needs to have same length as nus!
+        disscov = self.build_scintillation_cov_matrix(nus) 
 
         cov = sncov + jittercov + disscov
 
         sigma2 = epoch_averaged_error(cov,var=True)
+
+        sigmasn2 = epoch_averaged_error(sncov, var=True)
 
         if self.vverbose:
             with warnings.catch_warnings():
@@ -623,14 +870,13 @@ class FrequencyOptimizer:
 
         
         
-        sigmatel2 = epoch_averaged_error(self.build_polarization_cov_matrix())
+        sigmatel2 = epoch_averaged_error(self.build_polarization_cov_matrix(nus))
 
 
         sigmadm2 = self.DM_misestimation(nus,cov,covmat=True)**2
 
 
-        sigma = np.sqrt(sigma2 + sigmadm2 + sigmatel2) #need to include PBF errors?
-
+        sigma = np.sqrt(sigmadm2 + sigmatel2) #need to include PBF errors?
 
         if self.vverbose:
             print("Telescope noise: %0.3f us"%np.sqrt(sigmatel2))
@@ -643,7 +889,9 @@ class FrequencyOptimizer:
         if self.psrnoise.P is not None and sigma > self.psrnoise.P:
             return self.psrnoise.P
 
-        return sigma
+            
+        return sigma, np.sqrt(sigma2), np.sqrt(sigmadm2), np.sqrt(sigmatel2),\
+            np.sqrt(sigmasn2)
 
 
     def calc(self):
@@ -660,8 +908,11 @@ class FrequencyOptimizer:
                     print("Computing center freq %0.3f GHz (%i/%i)"%(C,ic,len(self.Cs)))
                 for ib,B in enumerate(self.Bs):
                     #print C,B
-                    if B > 1.9*C:
-                        self.sigmas[ic,ib] = np.nan
+                    #if B > 1.9*C:
+                    #if B > 2*C*(self.r - 1)/(self.r + 1):
+                    if (self.r is not None and (C+0.5*B)/(C-0.5*B) > self.r)\
+                        or B > 1.9*C or C - B/2.0 < self.numin:
+                        self.sigmas[ic,ib] =np.nan
                     else:
                         nulow = C - B/2.0
                         nuhigh = C + B/2.0
@@ -670,8 +921,8 @@ class FrequencyOptimizer:
                             nus = np.linspace(nulow,nuhigh,self.nchan+1)[:-1] #more uniform sampling?
                         else:
                             nus = np.logspace(np.log10(nulow),np.log10(nuhigh),self.nchan+1)[:-1] #more uniform sampling?
-                        sigmas[ib] = self.calc_single(nus)
-                        #self.sigmas[ic,ib] = self.calc_single(nus)
+                        sigmas[ib] = self.calc_single(nus)[0]
+                        #self.sigmas[ic,ib] = self.calc_single(nus)[0]
                         #print self.sigmas[ic,ib]
                 return sigmas
 
@@ -695,8 +946,8 @@ class FrequencyOptimizer:
                         else:
                             nus = np.logspace(np.log10(nulow),np.log10(nuhigh),self.nchan+1)[:-1] #more uniform sampling?   
 
-                        #self.sigmas[ic,indf] = self.calc_single(nus)
-                        sigmas[indf] = self.calc_single(nus)
+                        #self.sigmas[ic,indf] = self.calc_single(nus)[0]
+                        sigmas[indf] = self.calc_single(nus)[0]
                 return sigmas
 
         if self.ncpu == 1:
@@ -711,6 +962,13 @@ class FrequencyOptimizer:
     def plot(self,filename="triplot.png",doshow=True,figsize=(8,6),save=True,minimum=None,points=None,colorbararrow=None,cmap=cm.inferno_r,**kwargs):
         '''
         Create the triangle plots as in the optimal frequencies paper.
+
+        filename: filename
+        doshow: show the plot
+        figsize = figure size
+        save: Save the figure
+        minimum: Symbol to place over the minimum
+        points: Place other points on the plot
         '''
         fig = figure(figsize=figsize)
         ax = fig.add_subplot(111)
@@ -777,11 +1035,11 @@ class FrequencyOptimizer:
                     if self.log:
                         ax.plot(np.log10(x),np.log10(y),fmt,zorder=50,ms=8)
                         nus = np.logspace(np.log10(nulow),np.log10(nuhigh),self.nchan+1)[:-1] 
-                        sigma = np.log10(self.calc_single(nus))
+                        sigma = np.log10(self.calc_single(nus)[0])
                     else:
                         ax.plot(x,y,fmt,zorder=50,ms=8)
                         nus = np.linspace(nulow,nuhigh,self.nchan+1)[:-1] #more uniform sampling?
-                        sigma = np.log10(self.calc_single(nus))
+                        sigma = np.log10(self.calc_single(nus)[0])
                     with open("minima.txt",'a') as FILE:
                         FILE.write("%s point %f %f %f\n"%(self.psrnoise.name,x,y,sigma))
 
@@ -871,7 +1129,15 @@ class FrequencyOptimizer:
         else:
             np.savez(filename,Cs=self.Cs,Fs=self.Fs,sigmas=self.sigmas)
 
+    def get_optimum(self):
+        checkdata = np.log10(self.sigmas)
+        flatdata = checkdata.flatten()
+        #inds = np.where(np.logical_not(np.isnan(flatdata)))[0]
+        inds = np.where((~np.isnan(flatdata))&~(np.isinf(flatdata)))[0]
+        MIN = np.min(flatdata[inds])
+        INDC,INDB = np.where(checkdata==MIN)
+        INDC,INDB = INDC[0],INDB[0]
+        MINB = self.Bs[INDB]
+        MINC = self.Cs[INDC]
 
-
-
-
+        return MINC,MINB
