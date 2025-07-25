@@ -11,14 +11,10 @@ import glob
 import warnings
 import parallel
 import os
-import line_profiler
-import atexit
 
 # temporarily disable frequency-dependent integration time until simultaneous
 # multi-band is fully supported
 _DISABLE_FREQDEPDT_T = True
-profile = line_profiler.LineProfiler()
-atexit.register(profile.print_stats)
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
 
