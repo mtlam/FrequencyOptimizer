@@ -903,7 +903,7 @@ class FrequencyOptimizer:
             print("")
 
         if self.psrnoise.P is not None and sigma > self.psrnoise.P:
-            return self.psrnoise.P
+            return (self.psrnoise.P,) * 5
 
             
         return sigma, np.sqrt(sigma2), np.sqrt(sigmadm2), np.sqrt(sigmatel2),\
