@@ -223,6 +223,8 @@ class PulsarNoise:
     Weffs: Effective width, can be an array (us)
     W50s: Pulse full-width at half-maximum, can be an array (us)
     sigma_Js: Jitter for observation time T, can be an array (us) [note: T needs to be related to the TelescopeNoise class]
+    P: float (optional)
+       spin period in ms, if supplied sets upper limit on sigmas
     glon: Galactic longitude (deg)
     glat: galactic latitude (deg)
     ampratios_file: string (optional, default="ampratios.npz")
