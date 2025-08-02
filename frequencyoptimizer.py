@@ -284,24 +284,31 @@ class PulsarNoise:
             self.P = P * 1000 # now in microseconds
         else:
             self.P = None
+
+        self.load_ampratios_data(ampratios_file)
             
+    def load_ampratios_data(self, ampratios_file):
         # load pulse broadening function data
         if os.path.isfile(ampratios_file):
             self.ampratios_file = ampratios_file
-            self.ampratios_data = np.load(self.ampratios_file)
+            ampratios_npz = np.load(self.ampratios_file)
         elif os.path.isfile(os.path.join(__dir__, ampratios_file)): # default
             self.ampratios_file = os.path.join(__dir__,
                                                ampratios_file)
-            self.ampratios_data = np.load(self.ampratios_file)
+            ampratios_npz = np.load(self.ampratios_file)
         else:
             raise IOError(2, "'ampratios_file' does not exist. ",
                           ampratios_file)
-        
         required_columns = ['errratios', 'Weffratios', 'ratios', 'ampratios']
-        if not all([k in self.ampratios_data.keys() for k in required_columns]):
-            raise ValueError("NpzFile 'ampratios_file' must contain "
-                             "keys {}.".format(required_columns))
-        
+        try:
+            self.ampratios_data = {'ampratios': ampratios_npz['ampratios'],
+                                   'ratios': ampratios_npz['ratios'],
+                                   'Weffratios': ampratios_npz['Weffratios'],
+                                   'errratios': ampratios_npz['errratios']}
+        except KeyError:
+            raise KeyError("NpzFile 'ampratios_file' must contain "
+                           "keys {}.".format(required_columns))
+
 class GalacticNoise:
     '''
     Container class for all Galaxy-related variables.

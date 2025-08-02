@@ -3,6 +3,7 @@ Integration tests for frequencyoptimizer.FrequencyOptimizer
 """
 
 import pytest
+import multiprocessing as mpc
 import numpy as np
 import frequencyoptimizer as fop
 
@@ -188,4 +189,41 @@ def test_FrequencyOptimizer_calc_pulsarparams(psr):
                                      log=True,
                                      full_bandwidth=True,
                                      vverbose=False)
+    freqopt.calc()
+
+@pytest.mark.parametrize("ncpus", np.arange(mpc.cpu_count() - 2) + 1)
+def test_FrequencyOptimizer_calc_ncpus(ncpus):
+    """
+    Integration test for parallel.py with
+    frequencyoptimizer.FrequencyOptimizer.calc. No multiprocessing 
+    used when ncpus=1
+    """
+    nchan = 20
+    galnoise = fop.GalacticNoise()
+    telnoise = fop.TelescopeNoise(gain=2.0, T_rx=30.)
+
+    psrnoise = fop.PulsarNoise("J1744-1134",
+                               alpha=1.49,
+                               taud=26.1e-3,
+                               I_0=4.888,
+                               DM=3.14,
+                               D=0.41,
+                               tauvar=12.2e-3,
+                               dtd=1272.2,
+                               Weffs=np.full(nchan, 511.0),
+                               W50s=np.full(nchan, 136.8),
+                               sigma_Js=np.full(nchan, 0.066),
+                               P=4.074545941439190,
+                               Uscale=27.01)
+
+    freqopt = fop.FrequencyOptimizer(psrnoise,
+                                     galnoise,
+                                     telnoise,
+                                     numin=0.1,
+                                     numax=10.0,
+                                     nchan=nchan,
+                                     ncpu=ncpus,
+                                     log=True,
+                                     vverbose=False)
+
     freqopt.calc()
