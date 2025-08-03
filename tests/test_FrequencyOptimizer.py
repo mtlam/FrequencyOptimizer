@@ -6,6 +6,7 @@ import pytest
 import multiprocessing as mpc
 import numpy as np
 import frequencyoptimizer as fop
+from matplotlib import cm
 
 PSR_PARAMS = {'J1713+0747AO': {'alpha': 1.2,
                                'taud': 0.0521,
@@ -156,6 +157,55 @@ def test_FrequencyOptimizer_calc_vverbose(vverbose):
     freqopt.calc()
 
 @pytest.mark.parametrize("psr", list(PSR_PARAMS))
+def test_FrequencyOptimizer_plot_pulsarparams(psr):
+    """
+    Test plot optimal center frequency/bandwidth for different pulsars
+    """
+    nchan = 20
+    galnoise = fop.GalacticNoise()
+    telnoise = fop.TelescopeNoise(gain=2.,
+                                  T_rx=30.)
+
+    psrnoise = fop.PulsarNoise(psr,
+                               alpha=PSR_PARAMS[psr]["alpha"],
+                               taud=PSR_PARAMS[psr]["taud"],
+                               I_0=PSR_PARAMS[psr]["I_0"],
+                               DM=PSR_PARAMS[psr]["DM"],
+                               D=PSR_PARAMS[psr]["D"],
+                               tauvar=PSR_PARAMS[psr]["tauvar"],
+                               dtd=PSR_PARAMS[psr]["dtd"],
+                               Weffs=np.full(nchan, PSR_PARAMS[psr]["Weffs"]),
+                               W50s=np.full(nchan, PSR_PARAMS[psr]["W50s"]),
+                               sigma_Js=np.full(nchan, PSR_PARAMS[psr]["sigma_Js"]),
+                               P=PSR_PARAMS[psr]["P"],
+                               Uscale=PSR_PARAMS[psr]["Uscale"])
+
+    freqopt = fop.FrequencyOptimizer(psrnoise,
+                                     galnoise,
+                                     telnoise,
+                                     numin=0.1,
+                                     numax=10.0,
+                                     nsteps=25,
+                                     nchan=nchan,
+                                     log=True,
+                                     full_bandwidth=True,
+                                     levels=np.array([np.log10(0.1),
+                                                      np.log10(0.2),
+                                                      np.log10(0.5),
+                                                      np.log10(1.0),
+                                                      np.log10(2.0)]),
+                                     vverbose=False)
+    freqopt.calc()
+
+    freqopt.plot(save=False,
+                 doshow=False,
+                 minimum="k*",
+                 points=[(1.8, 1.2,"ko")],
+                 colorbararrow=None,
+                 cmap=cm.inferno_r)
+    
+
+@pytest.mark.parametrize("psr", list(PSR_PARAMS))
 def test_FrequencyOptimizer_calc_pulsarparams(psr):
     """
     Test optimization for different pulsars from Michael's paper
@@ -190,7 +240,7 @@ def test_FrequencyOptimizer_calc_pulsarparams(psr):
                                      full_bandwidth=True,
                                      vverbose=False)
     freqopt.calc()
-
+    
 @pytest.mark.parametrize("ncpus", np.arange(mpc.cpu_count() - 2) + 1)
 def test_FrequencyOptimizer_calc_ncpus(ncpus):
     """
