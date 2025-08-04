@@ -99,7 +99,8 @@ Usage:
 * telnoise: Telescope Noise object
 * numin: Lowest frequency to run (GHz)
 * numax: Highest frequency to run (GHz)
-* nsteps: Number of steps in the grid to run
+* nsteps: Number of steps in the grid to run when log=True
+* dnu: Grid spacing when log=False
 * nchan: number of underlying frequency channels
 * log: Run in log space
 * frac_bw: Run in fractional bandwidth
