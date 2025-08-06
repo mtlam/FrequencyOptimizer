@@ -365,8 +365,8 @@ class TelescopeNoise:
                  T=1800.0, Npol=2, rx_nu=None,
                  rxspecfile=None, rxspecdir=None):
 
-        if not isinstance(gain, (float, np.ndarray)):
-            raise TypeError("Invalid 'gain' type {}. Valid types are float "
+        if not isinstance(gain, (float, int, np.ndarray)):
+            raise TypeError("Invalid 'gain' type {}. Valid types are float, int, "
                             "or numpy.ndarray.".format(type(gain)))
         if isinstance(gain, np.ndarray):
             try:
@@ -376,8 +376,8 @@ class TelescopeNoise:
             except TypeError:
                 raise TypeError("if 'gain' is type numpy.ndarray, "
                                 "rx_nus must also be numpy.ndarray of same length")
-        if not isinstance(T_rx, (float, np.ndarray)):
-            raise TypeError("Invalid 'T_rx' type {}. Valid types are float "
+        if not isinstance(T_rx, (float, int, np.ndarray)):
+            raise TypeError("Invalid 'T_rx' type {}. Valid types are float, int, "
                             "or numpy.ndarray.".format(type(T_rx)))
         if isinstance(T_rx, np.ndarray):
             try:
