@@ -38,6 +38,7 @@ Usage:
 * Weffs: Effective width, can be an array (us)
 * W50s: Pulse full-width at half-maximum, can be an array (us)
 * sigma_Js: Jitter for observation time T, can be an array (us) [note: T needs to be related to the TelescopeNoise class]
+* P: spin period (ms), if supplied sets upper limit on sigmas
 * glon: Galactic longitude (deg)
 * glat: galactic latitude (deg)
 
@@ -98,7 +99,8 @@ Usage:
 * telnoise: Telescope Noise object
 * numin: Lowest frequency to run (GHz)
 * numax: Highest frequency to run (GHz)
-* nsteps: Number of steps in the grid to run
+* nsteps: Number of steps in the grid to run when log=True
+* dnu: Grid spacing when log=False
 * nchan: number of underlying frequency channels
 * log: Run in log space
 * frac_bw: Run in fractional bandwidth

@@ -7,7 +7,6 @@ from matplotlib import cm,rc
 from matplotlib.ticker import FuncFormatter, MultipleLocator
 import matplotlib.patches as patches
 import DISS
-import glob
 import warnings
 import parallel
 import os
@@ -224,10 +223,15 @@ class PulsarNoise:
     Weffs: Effective width, can be an array (us)
     W50s: Pulse full-width at half-maximum, can be an array (us)
     sigma_Js: Jitter for observation time T, can be an array (us) [note: T needs to be related to the TelescopeNoise class]
+    P: float (optional)
+       spin period in ms, if supplied sets upper limit on sigmas
     glon: Galactic longitude (deg)
     glat: galactic latitude (deg)
+    ampratios_file: string (optional, default="ampratios.npz")
+                    Name of pulse broadening function data numpy zip archive
+    or path to user-defined file. A user-defined file path takes precedence over default files. NpzFile must contain keys ['errratios', 'Weffratios', 'ratios', 'ampratios'].
     '''
-    def __init__(self,name,alpha=1.6,dtd=None,dnud=None,taud=None,C1=1.16,I_0=18.0,DM=0.0,D=1.0,Uscale=1.0,tauvar=None,Weffs=0.0,W50s=0.0,sigma_Js=0.0,P=None,glon=None,glat=None):
+    def __init__(self,name,alpha=1.6,dtd=None,dnud=None,taud=None,C1=1.16,I_0=18.0,DM=0.0,D=1.0,Uscale=1.0,tauvar=None,Weffs=0.0,W50s=0.0,sigma_Js=0.0,P=None,glon=None,glat=None, ampratios_file="ampratios.npz"):
         self.name = name
         self.glon = glon
         self.glat = glat
@@ -281,6 +285,29 @@ class PulsarNoise:
         else:
             self.P = None
 
+        self.load_ampratios_data(ampratios_file)
+            
+    def load_ampratios_data(self, ampratios_file):
+        # load pulse broadening function data
+        if os.path.isfile(ampratios_file):
+            self.ampratios_file = ampratios_file
+            ampratios_npz = np.load(self.ampratios_file)
+        elif os.path.isfile(os.path.join(__dir__, ampratios_file)): # default
+            self.ampratios_file = os.path.join(__dir__,
+                                               ampratios_file)
+            ampratios_npz = np.load(self.ampratios_file)
+        else:
+            raise IOError(2, "'ampratios_file' does not exist. ",
+                          ampratios_file)
+        required_columns = ['errratios', 'Weffratios', 'ratios', 'ampratios']
+        try:
+            self.ampratios_data = {'ampratios': ampratios_npz['ampratios'],
+                                   'ratios': ampratios_npz['ratios'],
+                                   'Weffratios': ampratios_npz['Weffratios'],
+                                   'errratios': ampratios_npz['errratios']}
+        except KeyError:
+            raise KeyError("NpzFile 'ampratios_file' must contain "
+                           "keys {}.".format(required_columns))
 
 class GalacticNoise:
     '''
@@ -304,10 +331,10 @@ class TelescopeNoise:
     '''
     Container class for all Telescope-related variables.
 
-    gain : float or numpy.ndarray
+    gain : int, float or numpy.ndarray
            Telescope gain (K/Jy) 
            If array must be same length as rx_nu 
-    T_rx : float or numpy.ndarray
+    T_rx : int, float or numpy.ndarray
            Receiver temperature (K) (i.e. T_sys - T_gal - T_CMB)
            If array must be same length as rx_nu 
     epsilon : float or numpy.ndarray (optional)
@@ -341,6 +368,8 @@ class TelescopeNoise:
         if not isinstance(gain, (float, int, np.ndarray)):
             raise TypeError("Invalid 'gain' type {}. Valid types are float, int, "
                             "or numpy.ndarray.".format(type(gain)))
+        if isinstance(gain, int):
+            gain = float(gain)
         if isinstance(gain, np.ndarray):
             try:
                 if len(gain) != len(rx_nu):
@@ -352,6 +381,8 @@ class TelescopeNoise:
         if not isinstance(T_rx, (float, int, np.ndarray)):
             raise TypeError("Invalid 'T_rx' type {}. Valid types are float, int, "
                             "or numpy.ndarray.".format(type(T_rx)))
+        if isinstance(T_rx, int):
+            T_rx = float(T_rx)
         if isinstance(T_rx, np.ndarray):
             try:
                 if len(T_rx) != len(rx_nu):
@@ -521,7 +552,8 @@ class FrequencyOptimizer:
     telnoise: Telescope Noise object
     numin: Lowest frequency to run (GHz)
     numax: Highest frequency to run (GHz)
-    nsteps: Number of steps in the grid to run
+    nsteps: Number of steps in the grid to run when log=True
+    dnu: Grid spacing when log=False
     nchan: number of underlying frequency channels
     log: Run in log space
     frac_bw: Run in fractional bandwidth
@@ -652,7 +684,9 @@ class FrequencyOptimizer:
 
         if self.psrnoise.taud > 0.0:
             tauds = DISS.scale_tau_d(self.psrnoise.taud,nuref,nus)
-            retval = self.scattering_modifications(tauds,Weffs)
+            retval = self.scattering_modifications(tauds,
+                                                   Weffs,
+                                                   self.psrnoise.ampratios_data)
             #retval = 1
             sigmas *= retval #??
 
@@ -682,20 +716,14 @@ class FrequencyOptimizer:
         return retval
 
 
-    def scattering_modifications(self,tauds,Weffs,filename="ampratios.npz",directory=None):
+    def scattering_modifications(self,tauds,Weffs,data):
         '''
         Takes the calculations of the convolved Gaussian-exponential simulations and returns the multiplicative factor applies to the template-fitting errors
         '''
-        if len(glob.glob(filename))!=1:
-            if directory is None:
-                directory = os.path.join(os.path.dirname(__file__), '')
-        else:
-            directory = ""
         if type(Weffs) != np.ndarray:
             Weffs = np.zeros_like(nus)+Weffs
 
         if self.scattering_mod_f is None:
-            data = np.load(directory+"ampratios.npz")
             ratios = data['ratios']
             ampratios = data['ampratios']
             Weffratios = data['Weffratios']
@@ -887,7 +915,7 @@ class FrequencyOptimizer:
             print("")
 
         if self.psrnoise.P is not None and sigma > self.psrnoise.P:
-            return self.psrnoise.P
+            return (self.psrnoise.P,) * 5
 
             
         return sigma, np.sqrt(sigma2), np.sqrt(sigmadm2), np.sqrt(sigmatel2),\

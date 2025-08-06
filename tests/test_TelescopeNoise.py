@@ -50,7 +50,7 @@ class Test_TelescopeNoise__init__gain_invalid_type(unittest.TestCase):
     def setUp(self):
         self.T_rx = 1.
     
-    @ptzd.parameterized.expand([("",), ([1., 2.],), (0,), (None,)],
+    @ptzd.parameterized.expand([("",), ([1., 2.],), (None,)],
                                name_func=lambda fxn, n, par : "_{}_".format(ptzd.parameterized.to_safe_name(str(type(par.args[0])))).join(fxn.__name__.split("_argtype_")))
     def test_gain_argtype_raises_TypeError(self, gain):
         with self.assertRaises(TypeError):
@@ -65,7 +65,7 @@ class Test_TelescopeNoise__init__T_rx_invalid_type(unittest.TestCase):
     def setUp(self):
         self.gain = 1.
     
-    @ptzd.parameterized.expand([("",), ([1., 2.],), (0,), (None,)],
+    @ptzd.parameterized.expand([("",), ([1., 2.],), (None,)],
                                name_func=lambda fxn, n, par : "_{}_".format(ptzd.parameterized.to_safe_name(str(type(par.args[0])))).join(fxn.__name__.split("_argtype_")))
     def test_T_rx_argtype_raises_TypeError(self, T_rx):
         with self.assertRaises(TypeError):
