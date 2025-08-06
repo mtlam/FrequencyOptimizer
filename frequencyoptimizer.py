@@ -331,10 +331,10 @@ class TelescopeNoise:
     '''
     Container class for all Telescope-related variables.
 
-    gain : float or numpy.ndarray
+    gain : int, float or numpy.ndarray
            Telescope gain (K/Jy) 
            If array must be same length as rx_nu 
-    T_rx : float or numpy.ndarray
+    T_rx : int, float or numpy.ndarray
            Receiver temperature (K) (i.e. T_sys - T_gal - T_CMB)
            If array must be same length as rx_nu 
     epsilon : float or numpy.ndarray (optional)
@@ -368,6 +368,8 @@ class TelescopeNoise:
         if not isinstance(gain, (float, int, np.ndarray)):
             raise TypeError("Invalid 'gain' type {}. Valid types are float, int, "
                             "or numpy.ndarray.".format(type(gain)))
+        if isinstance(gain, int):
+            gain = float(gain)
         if isinstance(gain, np.ndarray):
             try:
                 if len(gain) != len(rx_nu):
@@ -379,6 +381,8 @@ class TelescopeNoise:
         if not isinstance(T_rx, (float, int, np.ndarray)):
             raise TypeError("Invalid 'T_rx' type {}. Valid types are float, int, "
                             "or numpy.ndarray.".format(type(T_rx)))
+        if isinstance(T_rx, int):
+            T_rx = float(T_rx)
         if isinstance(T_rx, np.ndarray):
             try:
                 if len(T_rx) != len(rx_nu):
