@@ -277,3 +277,73 @@ def test_FrequencyOptimizer_calc_ncpus(ncpus):
                                      vverbose=False)
 
     freqopt.calc()
+
+@pytest.mark.parametrize(("log", "dnu", "full_bw", "r"),
+                         [(True, None, False, None),
+                          (False, 0.05, False, None),
+                          (True, None, False, 2)])
+def test_FrequencyOptimizer_calc_NaN_conditions(log, dnu, full_bw, r):
+    """
+    Check that sigmas have np.nan in the right location based on
+    conditions
+    """
+    nchan = 20
+    nsteps = 20
+    galnoise = fop.GalacticNoise()
+    telnoise = fop.TelescopeNoise(gain=2.0, T_rx=30.)
+    
+    psrnoise = fop.PulsarNoise("J1744-1134",
+                               alpha=1.49,
+                               taud=26.1e-3,
+                               I_0=4.888,
+                               DM=3.14,
+                               D=0.41,
+                               tauvar=12.2e-3,
+                               dtd=1272.2,
+                               Weffs=np.full(nchan, 511.0),
+                               W50s=np.full(nchan, 136.8),
+                               sigma_Js=np.full(nchan, 0.066),
+                               P=4.074545941439190,
+                               Uscale=27.01)
+
+    freqopt = fop.FrequencyOptimizer(psrnoise,
+                                     galnoise,
+                                     telnoise,
+                                     numin=0.1,
+                                     numax=10.0,
+                                     nchan=nchan,
+                                     ncpu=1,
+                                     nsteps=nsteps,
+                                     log=log,
+                                     dnu=dnu,
+                                     full_bandwidth=full_bw,
+                                     r=r,
+                                     verbose=False)
+    freqopt.calc()
+
+    # correct NaN location mask
+    if log == False:
+       dnu = dnu
+       Cs = np.arange(freqopt.numin, freqopt.numax, dnu)
+       Bs = np.arange(freqopt.numin, freqopt.numax / 2, dnu)
+    else:
+       MIN = np.log10(freqopt.numin)
+       MAX = np.log10(freqopt.numax)
+       Cs = np.logspace(MIN, MAX, int((MAX - MIN) * nsteps + 1))
+       if full_bw:
+           MAX = np.log10(2 * numax)
+           Bs = np.logspace(MIN, MAX, int((MAX - MIN) * nsteps + 1))
+       else:
+           Bs = np.logspace(MIN, MAX, int((MAX - MIN) * nsteps + 1))
+
+    C, B = np.meshgrid(Cs, Bs)
+    cond1 = B > 1.9 * C
+    cond2 = (C - B / 2.0) < freqopt.numin # nearly redundant to cond1
+    if r is not None:
+        cond3 = (C + 0.5 * B) / (C - 0.5 * B) > r
+    else:
+        cond3 = np.full((len(Bs), len(Cs)), False)
+        
+    NaN_location = cond1 | cond2 | cond3
+    
+    np.testing.assert_equal(NaN_location, np.isnan(freqopt.sigmas).T)

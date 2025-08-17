@@ -120,7 +120,13 @@ For plotting:
 * minimum: Symbol to place over the minimum
 * points: Place other points on the plot
 
-
+Testing
+-------
+Run all tests
+```
+cd tests/
+python -m unittest discover -s . -p "test_*.py"
+```
 
 Sample Code
 -----------
