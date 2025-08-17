@@ -940,7 +940,7 @@ class FrequencyOptimizer:
                     #if B > 2*C*(self.r - 1)/(self.r + 1):
                     if (self.r is not None and (C+0.5*B)/(C-0.5*B) > self.r)\
                         or B > 1.9*C or C - B/2.0 < self.numin:
-                        self.sigmas[ic,ib] =np.nan
+                        sigmas[ib] = np.nan
                     else:
                         nulow = C - B/2.0
                         nuhigh = C + B/2.0
@@ -949,9 +949,12 @@ class FrequencyOptimizer:
                             nus = np.linspace(nulow,nuhigh,self.nchan+1)[:-1] #more uniform sampling?
                         else:
                             nus = np.logspace(np.log10(nulow),np.log10(nuhigh),self.nchan+1)[:-1] #more uniform sampling?
-                        sigmas[ib] = self.calc_single(nus)[0]
-                        #self.sigmas[ic,ib] = self.calc_single(nus)[0]
-                        #print self.sigmas[ic,ib]
+                        try:
+                            sigmas[ib] = self.calc_single(nus)[0]
+                        except TypeError as e:
+                            print(self.calc_single(nus))
+                            raise e
+                        #print(self.sigmas[ic,ib])
                 return sigmas
 
         else:
@@ -963,7 +966,7 @@ class FrequencyOptimizer:
                 for indf,F in enumerate(self.Fs):
                     B = C*F
                     if B > 1.9*C or B <= 0:
-                        self.sigmas[ic,indf] = np.nan
+                        sigmas[indf] = np.nan
                     else:
                         nulow = C - B/2.0
                         nuhigh = C + B/2.0
@@ -974,7 +977,6 @@ class FrequencyOptimizer:
                         else:
                             nus = np.logspace(np.log10(nulow),np.log10(nuhigh),self.nchan+1)[:-1] #more uniform sampling?   
 
-                        #self.sigmas[ic,indf] = self.calc_single(nus)[0]
                         sigmas[indf] = self.calc_single(nus)[0]
                 return sigmas
 
@@ -1169,3 +1171,4 @@ class FrequencyOptimizer:
         MINC = self.Cs[INDC]
 
         return MINC,MINB
+ 
