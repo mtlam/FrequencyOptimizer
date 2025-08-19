@@ -926,7 +926,8 @@ class FrequencyOptimizer:
         '''
         Run a full calculation over a grid of frequencies
         '''
-        print("Computing for pulsar: %s"%self.psrnoise.name)
+        if self.verbose:
+            print("Computing for pulsar: %s"%self.psrnoise.name)
         self.sigmas = np.zeros((len(self.Cs),len(self.Bs)))
         if self.frac_bw == False:
             def loop_func(ic):
