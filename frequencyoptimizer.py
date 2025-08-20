@@ -566,7 +566,7 @@ class FrequencyOptimizer:
     ncpu: number of cores for multiprocess threading
     '''
     
-    def __init__(self,psrnoise,galnoise,telnoise,numin=0.01,numax=10.0,r=None,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,vverbose=False,full_bandwidth=False,masks=None,levels=LEVELS,colors=COLORS,lws=LWS,ncpu=1):
+    def __init__(self,psrnoise,galnoise,telnoise,numin=0.01,numax=10.0,r=None,dnu=0.05,nchan=100,log=False,nsteps=8,frac_bw=False,verbose=True,vverbose=False,full_bandwidth=False,masks=None,enforce_numax=False,levels=LEVELS,colors=COLORS,lws=LWS,ncpu=1):
 
 
 
@@ -581,6 +581,7 @@ class FrequencyOptimizer:
         self.numin = numin
         self.numax = numax
         self.masks = masks
+        self.enforce_numax = enforce_numax
         if type(masks) == tuple: #implies it is not None
             self.masks = [masks]
 
@@ -921,12 +922,25 @@ class FrequencyOptimizer:
         return sigma, np.sqrt(sigma2), np.sqrt(sigmadm2), np.sqrt(sigmatel2),\
             np.sqrt(sigmasn2)
 
-
+    def _is_forbidden_CB(self, C, B):
+        """
+        Return True if center frequency-BW combo is not allowed
+        """
+        bwratio_cond = self.r is not None and (C+0.5*B)/(C-0.5*B) > self.r
+        maxB_cond = B > 1.9*C
+        numin_cond = C - B/2.0 < self.numin
+        if self.enforce_numax:
+            numax_cond = C + B/2.0 > self.numax
+        else:
+            numax_cond = False
+        return bwratio_cond or maxB_cond or numin_cond or numax_cond
+    
     def calc(self):
         '''
         Run a full calculation over a grid of frequencies
         '''
-        print("Computing for pulsar: %s"%self.psrnoise.name)
+        if self.verbose:
+            print("Computing for pulsar: %s"%self.psrnoise.name)
         self.sigmas = np.zeros((len(self.Cs),len(self.Bs)))
         if self.frac_bw == False:
             def loop_func(ic):
@@ -938,8 +952,7 @@ class FrequencyOptimizer:
                     #print C,B
                     #if B > 1.9*C:
                     #if B > 2*C*(self.r - 1)/(self.r + 1):
-                    if (self.r is not None and (C+0.5*B)/(C-0.5*B) > self.r)\
-                        or B > 1.9*C or C - B/2.0 < self.numin:
+                    if self._is_forbidden_CB(C,B):
                         sigmas[ib] = np.nan
                     else:
                         nulow = C - B/2.0
