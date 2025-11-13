@@ -659,8 +659,8 @@ class FrequencyOptimizer:
             Tgal = 20*np.power(nus/0.408,-1*self.galnoise.beta)
         else:
             Tgal = np.array([tskypy(self.galnoise.tskylist,
-                                    self.psrnoise.glat,
                                     self.psrnoise.glon,
+                                    self.psrnoise.glat,
                                     nu*1e3) for nu in nus])
         Tsys = self.telnoise.get_T_rx(nus) + Tgal + 2.73
 
